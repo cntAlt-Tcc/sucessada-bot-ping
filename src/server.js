@@ -54,7 +54,13 @@ app.get('/on', async (_request, response) => {
 
 if (require.main === module) {
   const port = Number(config.port || 3000);
-  app.listen(port, () => console.log(`Health server ouvindo na porta ${port}`));
+  app.listen(port, () => {
+    console.log(`Health server ouvindo na porta ${port}`);
+    startServices().catch(error => {
+      console.error('Falha na inicialização automática:', error);
+      process.exitCode = 1;
+    });
+  });
 }
 
 module.exports = app;

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: sucessada-discord-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /on
+    envVars:
+      - key: CONFIG_DISCORD_TOKEN
+        sync: false
+      - key: CONFIG_STORAGE_USERNAME
+        sync: false
+      - key: CONFIG_STORAGE_PASSWORD
+        sync: false
+      - key: CONFIG_STORAGE_API_URL
+        value: https://apifile.netlify.app

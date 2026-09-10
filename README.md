@@ -30,4 +30,12 @@ As credenciais são lidas diretamente em runtime e nunca são gravadas no reposi
 
 Se `/on` retornar `discord_startup_failed`, revise o token Discord e habilite o **Message Content Intent**. Se retornar `storage_startup_failed`, revise usuário e senha da API File. A resposta não mostra credenciais.
 
-Importante: a Vercel executa funções serverless sob demanda e pode congelar ou encerrar o processo depois da resposta. Portanto, acessar `/on` por um serviço de ping pode reativar a função, mas **não garante** uma conexão Gateway do Discord 24/7. Para disponibilidade realmente contínua, hospede o mesmo projeto em um serviço com processo persistente, como Render Background Worker, Railway ou VPS; o endpoint `/on` continua útil como health check.# sucessada-bot-ping
+Importante: a Vercel executa funções serverless sob demanda e pode congelar ou encerrar o processo depois da resposta. Portanto, acessar `/on` por um serviço de ping não garante uma conexão Gateway do Discord 24/7.
+
+### Render Web Service gratuito
+
+O arquivo `render.yaml` configura um Web Service no plano gratuito. No Render, crie um Blueprint a partir deste repositório e informe os quatro valores `CONFIG_*` solicitados. O comando `npm start` inicia o bot automaticamente.
+
+O plano gratuito pode dormir depois de um período sem tráfego. Configure um serviço de monitoramento gratuito para acessar `/on` a cada 10 minutos. Isso pode manter o serviço ativo, mas não é uma garantia oficial de disponibilidade 24/7.
+
+Para Railway, crie um serviço usando este repositório, configure as mesmas variáveis de ambiente e use `npm start` como comando de inicialização.
