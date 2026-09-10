@@ -18,6 +18,15 @@ O cliente faz login na API File quando não possui um JWT válido. A expiração
 
 ## Deploy
 
-O projeto inclui `api/index.js` e `vercel.json` para expor `/on` na Vercel. O arquivo `config.json` fica ignorado pelo Git para proteger os tokens. Em uma plataforma de deploy, envie esse arquivo como parte dos arquivos privados do projeto.
+O projeto inclui `api/index.js` e `vercel.json` para expor `/on` na Vercel. O arquivo `config.json` fica ignorado pelo Git para proteger os tokens. No painel da Vercel, cadastre estas variáveis como **Environment Variables** para o ambiente de produção:
+
+```text
+CONFIG_DISCORD_TOKEN
+CONFIG_STORAGE_USERNAME
+CONFIG_STORAGE_PASSWORD
+CONFIG_STORAGE_API_URL=https://apifile.netlify.app
+```
+
+Durante o build, essas credenciais privadas geram automaticamente o `config.json`. O código da aplicação continua usando somente esse arquivo JSON. Faça um novo deploy depois de cadastrar as variáveis.
 
 Importante: a Vercel executa funções serverless sob demanda e pode congelar ou encerrar o processo depois da resposta. Portanto, acessar `/on` por um serviço de ping pode reativar a função, mas **não garante** uma conexão Gateway do Discord 24/7. Para disponibilidade realmente contínua, hospede o mesmo projeto em um serviço com processo persistente, como Render Background Worker, Railway ou VPS; o endpoint `/on` continua útil como health check.# sucessada-bot-ping
