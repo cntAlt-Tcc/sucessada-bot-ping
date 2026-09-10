@@ -5,7 +5,6 @@
   "description": "Discord bot with a health endpoint and remote file storage.",
   "main": "src/server.js",
   "scripts": {
-    "build": "node scripts/create-config.js",
     "start": "node src/server.js"
   },
   "engines": {

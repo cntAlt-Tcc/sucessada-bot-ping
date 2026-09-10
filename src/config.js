@@ -1,18 +1,22 @@
-const fs = require('node:fs');
-const path = require('node:path');
-
-const configPath = path.join(__dirname, '..', 'config.json');
-
-function loadConfig() {
-  if (!fs.existsSync(configPath)) {
-    throw new Error('config.json não encontrado. Copie config.example.json para config.json e preencha os valores.');
+const config = {
+  discordToken: process.env.CONFIG_DISCORD_TOKEN?.trim(),
+  port: Number(process.env.PORT || 3000),
+  storage: {
+    apiUrl: (process.env.CONFIG_STORAGE_API_URL || 'https://apifile.netlify.app').replace(/\/$/, ''),
+    username: process.env.CONFIG_STORAGE_USERNAME?.trim(),
+    password: process.env.CONFIG_STORAGE_PASSWORD?.trim()
   }
+};
 
-  try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  } catch (error) {
-    throw new Error(`config.json inválido: ${error.message}`);
+function validateConfig() {
+  const missing = [];
+  if (!config.discordToken) missing.push('CONFIG_DISCORD_TOKEN');
+  if (!config.storage.username) missing.push('CONFIG_STORAGE_USERNAME');
+  if (!config.storage.password) missing.push('CONFIG_STORAGE_PASSWORD');
+
+  if (missing.length > 0) {
+    throw new Error(`Variáveis ausentes: ${missing.join(', ')}`);
   }
 }
 
-module.exports = loadConfig();
+module.exports = { ...config, validateConfig };

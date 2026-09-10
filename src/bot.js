@@ -26,7 +26,7 @@ function createClient() {
 function startBot() {
   if (client?.isReady()) return Promise.resolve(client);
   if (connectionPromise) return connectionPromise;
-  if (!config.discordToken) throw new Error('discordToken não configurado no config.json');
+  if (!config.discordToken) throw new Error('CONFIG_DISCORD_TOKEN não configurado');
 
   client = createClient();
   connectionPromise = client.login(config.discordToken)
