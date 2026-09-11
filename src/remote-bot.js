@@ -20,7 +20,8 @@ async function loadRemoteBot() {
   const remoteModule = new Module(REMOTE_BOT_FILE, module);
   remoteModule.filename = LOCAL_BOT_FILE;
   remoteModule.paths = Module._nodeModulePaths(path.join(__dirname, '..'));
-  remoteModule._compile(source, LOCAL_BOT_FILE);
+  const compatibilityStop = `\nif (typeof module.exports.stopBot !== 'function') {\n  module.exports.stopBot = async function stopBot() {\n    if (typeof client !== 'undefined' && client) await client.destroy();\n    if (typeof client !== 'undefined') client = undefined;\n    if (typeof connectionPromise !== 'undefined') connectionPromise = undefined;\n  };\n}\n`;
+  remoteModule._compile(`${source}${compatibilityStop}`, LOCAL_BOT_FILE);
 
   if (typeof remoteModule.exports.startBot !== 'function' || typeof remoteModule.exports.getStatus !== 'function') {
     throw new Error('O source remoto precisa exportar startBot e getStatus');

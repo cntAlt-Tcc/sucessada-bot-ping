@@ -31,7 +31,7 @@ As credenciais são lidas diretamente em runtime e nunca são gravadas no reposi
 
 Na rota principal `/`, o painel pede `CONFIG_PANEL_PASSWORD`. Depois do login, ele edita somente as fontes catalogadas do bot através do backend, persistindo-as em `/byabot/source`. O navegador nunca acessa a API File diretamente.
 
-O painel não executa JavaScript arbitrário. O source remoto é carregado antes da conexão Discord. Se o código salvo exportar `stopBot`, ele é recarregado imediatamente; caso contrário, o painel informa que é necessário reiniciar o serviço (`npm restart` ou redeploy), evitando duas conexões Discord simultâneas.
+O painel não executa JavaScript arbitrário. O source remoto é carregado antes da conexão Discord. Ao salvar, o backend encerra a conexão anterior, recarrega o source persistido e inicia a nova versão sem redeploy. O painel também exibe logs reais capturados do console do processo. Esse hot reload funciona de forma confiável no Render Web Service persistente; na Vercel, cada instância serverless pode ser encerrada a qualquer momento.
 
 Se `/on` retornar `discord_startup_failed`, revise o token Discord e habilite o **Message Content Intent**. Se retornar `storage_startup_failed`, revise usuário e senha da API File. A resposta não mostra credenciais.
 

@@ -9,6 +9,7 @@ const status = document.querySelector('#status');
 const saveButton = document.querySelector('#save');
 const lineCount = document.querySelector('#line-count');
 let selectedSource = '';
+let lastLogId = '';
 
 async function api(url, options) {
   const response = await fetch(url, { credentials: 'same-origin', ...options });
@@ -31,7 +32,25 @@ function showApp() {
   appView.classList.remove('hidden');
   loadSources();
   loadRuntime();
+  loadLogs();
   document.querySelector('#current-date').textContent = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date());
+}
+
+async function loadLogs() {
+  try {
+    const result = await api(`/api/admin/logs${lastLogId ? `?since=${encodeURIComponent(lastLogId)}` : ''}`);
+    const logs = document.querySelector('#logs');
+    if (!lastLogId) logs.innerHTML = '';
+    result.entries.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = `log-row ${entry.level}`;
+      row.innerHTML = `<time>${new Date(entry.at).toLocaleTimeString('pt-BR')}</time><b>${entry.level.toUpperCase()}</b><span></span>`;
+      row.querySelector('span').textContent = entry.message;
+      logs.appendChild(row);
+      lastLogId = entry.id;
+    });
+    while (logs.children.length > 200) logs.firstElementChild.remove();
+  } catch { /* polling pode falhar sem bloquear o editor */ }
 }
 
 async function loadRuntime() {
@@ -124,7 +143,7 @@ editor.addEventListener('input', updateLineCount);
 editor.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') saveButton.click();
 });
-document.querySelector('#refresh').onclick = () => { loadSources(); loadRuntime(); };
+document.querySelector('#refresh').onclick = () => { loadSources(); loadRuntime(); loadLogs(); };
 document.querySelector('#overview-nav').onclick = event => {
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
   event.currentTarget.classList.add('active');
@@ -138,3 +157,4 @@ document.querySelector('#source-nav').onclick = event => {
 };
 document.querySelector('#logout').onclick = async () => { await api('/api/admin/logout', { method: 'POST' }); location.reload(); };
 checkSession().catch(() => {});
+setInterval(() => { if (!appView.classList.contains('hidden')) loadLogs(); }, 3000);

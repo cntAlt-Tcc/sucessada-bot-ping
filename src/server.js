@@ -4,11 +4,13 @@ const fs = require('node:fs/promises');
 const config = require('./config');
 const { ensureFolder, ensureRootFolder, readFile, writeFile } = require('./storage');
 const { loadRemoteBot, getLoadedBot, REMOTE_BOT_FILE } = require('./remote-bot');
+const { getEntries, install: installLogger } = require('./logger');
 const { createSession, getCookie, isValidSession, requireAdmin, setSessionCookie } = require('./admin');
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+installLogger();
 
 const SOURCE_FILES = [{ id: 'bot', label: 'Bot Discord', file: 'src/bot.js' }];
 const SOURCE_ROOT = '/byabot/source';
@@ -85,6 +87,10 @@ app.get('/api/admin/session', (request, response) => {
 
 app.get('/api/admin/source', requireAdmin.bind(null, config), (_request, response) => {
   response.json({ ok: true, files: SOURCE_FILES });
+});
+
+app.get('/api/admin/logs', requireAdmin.bind(null, config), (request, response) => {
+  response.json({ ok: true, entries: getEntries(request.query.since) });
 });
 
 app.get('/api/admin/source/:id', requireAdmin.bind(null, config), async (request, response) => {
