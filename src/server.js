@@ -3,8 +3,8 @@ const multer = require('multer');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const config = require('./config');
-const { copyPath, deleteFile, deleteFolder, ensureFolder, ensureRootFolder, listFolder, movePath, readFile, uploadFile, writeFile } = require('./storage');
-const { loadRemoteBot, getLoadedBot, REMOTE_BOT_FILE } = require('./remote-bot');
+const { copyPath, deleteFile, deleteFolder, ensureFolder, ensureRootFolder, getStorageRoot, listFolder, movePath, movePathAt, readFile, readFileAt, uploadFile, writeFile, writeFileAt, setStorageRoot } = require('./storage');
+const { loadRemoteBot, getLoadedBot, getRemoteBotFile } = require('./remote-bot');
 const { clear, event: logEvent, getEntries, getSummary, install: installLogger } = require('./logger');
 const { createSession, getCookie, isValidSession, requireAdmin, setSessionCookie } = require('./admin');
 
@@ -27,7 +27,39 @@ app.use((request, response, next) => {
 });
 
 const SOURCE_FILES = [{ id: 'bot', label: 'Bot Discord', file: 'src/bot.js' }];
-const SOURCE_ROOT = '/byabot/source';
+const DEFAULT_BOT_NAME = 'byabot';
+let botName = DEFAULT_BOT_NAME;
+let SOURCE_ROOT = '/byabot/source';
+
+function validBotName(value) {
+  return typeof value === 'string' && /^[a-z0-9](?:[a-z0-9_-]{0,39})$/i.test(value);
+}
+
+function setBotName(value) {
+  botName = value.toLowerCase();
+  setStorageRoot(`/${botName}`);
+  SOURCE_ROOT = `/${botName}/source`;
+}
+
+async function loadBotIdentity() {
+  let identity;
+  try {
+    identity = JSON.parse(await readFileAt('/byabot/botname.json'));
+  } catch (error) {
+    if (error.status !== 404) throw error;
+    try {
+      identity = JSON.parse(await fs.readFile(path.join(__dirname, '..', 'botname.json'), 'utf8'));
+    } catch {
+      identity = { name: DEFAULT_BOT_NAME };
+    }
+    await writeFileAt('/byabot/botname.json', JSON.stringify(identity, null, 2));
+  }
+  if (!validBotName(identity?.name)) throw new Error('botname.json inválido');
+  setBotName(identity.name);
+  await ensureRootFolder();
+  await ensureFolder(SOURCE_ROOT);
+  await writeFile('botname.json', JSON.stringify({ name: botName }, null, 2));
+}
 
 function getSourceFile(id) {
   return SOURCE_FILES.find(item => item.id === id);
@@ -35,14 +67,14 @@ function getSourceFile(id) {
 
 function sourcePath(value = '') {
   const normalized = `/${String(value).replace(/^\/+/, '')}`;
-  if (normalized.includes('..') || !/^\/byabot\/source(?:\/[\w.-]+)*$/.test(normalized)) {
+  if (normalized.includes('..') || !(normalized === SOURCE_ROOT || normalized.startsWith(`${SOURCE_ROOT}/`)) || !/^\/[\w-]+\/source(?:\/[\w.-]+)*$/.test(normalized)) {
     throw new Error('invalid_source_path');
   }
   return normalized;
 }
 
 function sourceRelative(value) {
-  return sourcePath(value).replace(/^\/byabot\/source\/?/, '');
+  return sourcePath(value).replace(`${SOURCE_ROOT}/`, '').replace(SOURCE_ROOT, '');
 }
 
 async function ensureSourceParents(relative) {
@@ -81,7 +113,7 @@ async function readSourceTree(folder = SOURCE_ROOT) {
 
 async function seedSourceFile(source) {
   try {
-    return await readFile(REMOTE_BOT_FILE);
+    return await readFile(getRemoteBotFile());
   } catch (error) {
     if (error.status !== 404) throw error;
     const content = await fs.readFile(path.join(__dirname, '..', source.file), 'utf8');
@@ -101,8 +133,7 @@ async function startServices() {
         config.validateConfig();
         logEvent('info', 'config_validate_ok', 'Configuração válida', { stage: 'config' });
         logEvent('info', 'storage_connect_start', 'Conectando à API File', { stage: 'storage' });
-        await ensureRootFolder();
-        await ensureFolder(SOURCE_ROOT);
+        await loadBotIdentity();
         await ensureFolder(`${SOURCE_ROOT}/src`);
         logEvent('info', 'storage_connect_ok', 'API File disponível', { stage: 'storage' });
       } catch (error) {
@@ -113,7 +144,7 @@ async function startServices() {
 
       let bot;
       try {
-        logEvent('info', 'remote_source_load_start', `Carregando ${REMOTE_BOT_FILE}`, { stage: 'remote_source' });
+        logEvent('info', 'remote_source_load_start', `Carregando ${getRemoteBotFile()}`, { stage: 'remote_source' });
         bot = await loadRemoteBot();
         logEvent('info', 'discord_login_start', 'Conectando ao Gateway Discord', { stage: 'discord' });
         await bot.startBot();
@@ -158,6 +189,45 @@ app.get('/api/admin/session', (request, response) => {
   response.json({ authenticated: isValidSession(config, getCookie(request)) });
 });
 
+app.get('/api/admin/bot-name', requireAdmin.bind(null, config), (_request, response) => {
+  response.json({ ok: true, name: botName, root: getStorageRoot() });
+});
+
+app.put('/api/admin/bot-name', requireAdmin.bind(null, config), async (request, response) => {
+  const nextName = String(request.body?.name || '').trim().toLowerCase();
+  if (!validBotName(nextName)) {
+    return response.status(400).json({ ok: false, error: 'invalid_bot_name' });
+  }
+  if (nextName === botName) return response.json({ ok: true, name: botName, root: getStorageRoot(), changed: false });
+
+  const previousName = botName;
+  const previousRoot = getStorageRoot();
+  const nextRoot = `/${nextName}`;
+  try {
+    try {
+      await listFolder(nextRoot);
+      return response.status(409).json({ ok: false, error: 'bot_name_exists' });
+    } catch (error) {
+      if (error.status !== 404) throw error;
+    }
+
+    await getLoadedBot()?.stopBot?.();
+    await movePathAt(previousRoot, nextRoot);
+    setBotName(nextName);
+    await ensureRootFolder();
+    await ensureFolder(`${SOURCE_ROOT}/src`);
+    await writeFile('botname.json', JSON.stringify({ name: botName }, null, 2));
+    await writeFileAt('/byabot/botname.json', JSON.stringify({ name: botName }, null, 2));
+    await loadRemoteBot();
+    await getLoadedBot().startBot();
+    response.json({ ok: true, name: botName, root: getStorageRoot(), changed: true });
+  } catch (error) {
+    setBotName(previousName);
+    console.error('Falha ao renomear bot:', error);
+    response.status(502).json({ ok: false, error: 'bot_rename_failed' });
+  }
+});
+
 app.get('/api/admin/source', requireAdmin.bind(null, config), (_request, response) => {
   response.json({ ok: true, files: SOURCE_FILES });
 });
@@ -188,7 +258,7 @@ app.put('/api/admin/source/item', requireAdmin.bind(null, config), async (reques
       return response.status(400).json({ ok: false, error: 'invalid_content' });
     }
     await writeFile(path, request.body.content);
-    response.json({ ok: true, path, applied: path === REMOTE_BOT_FILE });
+    response.json({ ok: true, path, applied: path === getRemoteBotFile() });
   } catch (error) {
     response.status(400).json({ ok: false, error: 'source_write_failed' });
   }
@@ -210,7 +280,7 @@ app.post('/api/admin/source/file', requireAdmin.bind(null, config), async (reque
     const path = sourcePath(request.body?.path);
     if (path === SOURCE_ROOT || path.endsWith('/')) return response.status(400).json({ ok: false, error: 'invalid_file_path' });
     const content = typeof request.body?.content === 'string' ? request.body.content : '';
-    await ensureSourceParents(path.replace(/^\/byabot\/source\//, ''));
+    await ensureSourceParents(path.replace(`${SOURCE_ROOT}/`, ''));
     await writeFile(path, content);
     response.status(201).json({ ok: true, path, type: 'file' });
   } catch (error) {
@@ -323,7 +393,7 @@ app.put('/api/admin/source/:id', requireAdmin.bind(null, config), async (request
     return response.status(400).json({ ok: false, error: 'invalid_content' });
   }
   try {
-    await writeFile(REMOTE_BOT_FILE, request.body.content);
+    await writeFile(getRemoteBotFile(), request.body.content);
     const bot = getLoadedBot();
     if (typeof bot?.stopBot !== 'function') {
       return response.json({ ok: true, ...source, applied: false, restartRequired: true });

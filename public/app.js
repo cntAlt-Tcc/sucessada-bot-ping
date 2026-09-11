@@ -35,11 +35,23 @@ function setRuntime(statusText, ping) {
 function showApp() {
   loginView.classList.add('hidden');
   appView.classList.remove('hidden');
+  loadBotName();
   loadTree();
   loadRuntime();
   loadLogs();
   loadServers();
   document.querySelector('#current-date').textContent = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date());
+}
+
+async function loadBotName() {
+  try {
+    const result = await api('/api/admin/bot-name');
+    document.querySelector('#bot-name').value = result.name;
+    document.querySelector('#bot-display-name').textContent = result.name.toUpperCase();
+    document.querySelector('#welcome-title').textContent = `${result.name} / painel de controle`;
+  } catch (error) {
+    document.querySelector('#bot-name-status').textContent = error.message;
+  }
 }
 
 async function loadServers() {
@@ -222,6 +234,24 @@ loginForm.addEventListener('submit', async event => {
     showApp();
   } catch {
     loginError.textContent = 'Senha inválida ou painel não configurado.';
+  }
+});
+
+document.querySelector('#bot-name-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const input = document.querySelector('#bot-name');
+  const nameStatus = document.querySelector('#bot-name-status');
+  nameStatus.textContent = 'movendo arquivos';
+  try {
+    const result = await api('/api/admin/bot-name', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: input.value })
+    });
+    nameStatus.textContent = result.changed ? 'renomeado e aplicado' : 'nome já aplicado';
+    window.setTimeout(() => location.reload(), 500);
+  } catch (error) {
+    nameStatus.textContent = error.message === 'bot_name_exists' ? 'esse nome já existe' : error.message;
   }
 });
 

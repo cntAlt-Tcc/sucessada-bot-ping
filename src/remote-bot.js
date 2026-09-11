@@ -2,21 +2,26 @@ const Module = require('node:module');
 const path = require('node:path');
 const { readFile, writeFile } = require('./storage');
 
-const REMOTE_BOT_FILE = '/byabot/source/src/bot.js';
 const LOCAL_BOT_FILE = path.join(__dirname, 'bot.js');
 let loadedBot;
 
+function getRemoteBotFile() {
+  const { getStorageRoot } = require('./storage');
+  return `${getStorageRoot()}/source/src/bot.js`;
+}
+
 async function loadRemoteBot() {
+  const remoteBotFile = getRemoteBotFile();
   let source;
   try {
-    source = await readFile(REMOTE_BOT_FILE);
+    source = await readFile(remoteBotFile);
   } catch (error) {
     if (error.status !== 404) throw error;
     source = require('node:fs').readFileSync(LOCAL_BOT_FILE, 'utf8');
-    await writeFile(REMOTE_BOT_FILE, source);
+    await writeFile(remoteBotFile, source);
   }
 
-  const remoteModule = new Module(REMOTE_BOT_FILE, module);
+  const remoteModule = new Module(remoteBotFile, module);
   remoteModule.filename = LOCAL_BOT_FILE;
   remoteModule.paths = Module._nodeModulePaths(path.join(__dirname, '..'));
   const compatibility = `
@@ -62,4 +67,4 @@ function getLoadedBot() {
   return loadedBot;
 }
 
-module.exports = { loadRemoteBot, getLoadedBot, REMOTE_BOT_FILE };
+module.exports = { loadRemoteBot, getLoadedBot, getRemoteBotFile };

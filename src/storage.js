@@ -1,7 +1,8 @@
 const config = require('./config');
 
 const API_URL = (config.storage.apiUrl || 'https://apifile.netlify.app').replace(/\/$/, '');
-const ROOT = '/byabot';
+const DEFAULT_ROOT = '/byabot';
+let root = DEFAULT_ROOT;
 const TOKEN_REFRESH_MARGIN_SECONDS = 60;
 
 let token;
@@ -13,9 +14,9 @@ function apiPath(path) {
 
 function storagePath(name) {
   const normalized = `/${String(name).replace(/^\/+/, '')}`;
-  return normalized === ROOT || normalized.startsWith(`${ROOT}/`)
+  return normalized === root || normalized.startsWith(`${root}/`)
     ? normalized
-    : `${ROOT}${normalized}`;
+    : `${root}${normalized}`;
 }
 
 function decodeTokenExpiration(jwt) {
@@ -83,7 +84,15 @@ async function request(path, options = {}, retry = true) {
 }
 
 async function ensureRootFolder() {
-  return ensureFolder(ROOT);
+  return ensureFolder(root);
+}
+
+function getStorageRoot() {
+  return root;
+}
+
+function setStorageRoot(name) {
+  root = `/${String(name).replace(/^\/+|\/+$/g, '')}`;
 }
 
 async function ensureFolder(path) {
@@ -99,6 +108,10 @@ async function ensureFolder(path) {
 
 async function readFile(name) {
   const path = storagePath(name);
+  return readFileAt(path);
+}
+
+async function readFileAt(path) {
   const result = await request(`/api/files/${apiPath(path)}`);
   if (typeof result === 'string') return result;
   if (typeof result?.content === 'string') return result.content;
@@ -107,6 +120,10 @@ async function readFile(name) {
 
 async function writeFile(name, content) {
   const path = storagePath(name);
+  return writeFileAt(path, content);
+}
+
+async function writeFileAt(path, content) {
   try {
     return await request(`/api/files/${apiPath(path)}`, {
       method: 'PUT',
@@ -137,6 +154,10 @@ async function movePath(source, destination) {
   return request('/api/files/move', { method: 'POST', body: JSON.stringify({ source: storagePath(source), destination: storagePath(destination) }) });
 }
 
+async function movePathAt(source, destination) {
+  return request('/api/files/move', { method: 'POST', body: JSON.stringify({ source, destination }) });
+}
+
 async function uploadFile(path, file) {
   const form = new FormData();
   form.append('path', storagePath(path));
@@ -148,9 +169,9 @@ async function uploadFile(path, file) {
   return body?.data ?? body;
 }
 
-async function listFolder(path = ROOT) {
-  if (path === ROOT) return request('/api/folders/');
+async function listFolder(path = root) {
+  if (path === root) return request('/api/folders/');
   return request(`/api/folders/${apiPath(path)}`);
 }
 
-module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, writeFile, deleteFile, deleteFolder, copyPath, movePath, uploadFile };
+module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, readFileAt, writeFile, writeFileAt, deleteFile, deleteFolder, copyPath, movePath, movePathAt, uploadFile, getStorageRoot, setStorageRoot };
