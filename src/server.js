@@ -94,6 +94,21 @@ app.get('/api/admin/logs', requireAdmin.bind(null, config), (request, response) 
 });
 
 app.get('/api/admin/servers', requireAdmin.bind(null, config), async (_request, response) => {
+
+  app.delete('/api/admin/servers/:id', requireAdmin.bind(null, config), async (request, response) => {
+    if (!/^\d{15,25}$/.test(request.params.id)) {
+      return response.status(400).json({ ok: false, error: 'invalid_server_id' });
+    }
+    try {
+      await startServices();
+      await getLoadedBot().leaveServer(request.params.id);
+      console.log(`Servidor removido: ${request.params.id}`);
+      response.json({ ok: true, serverId: request.params.id });
+    } catch (error) {
+      console.error('Falha ao sair do servidor:', error);
+      response.status(502).json({ ok: false, error: 'server_leave_failed' });
+    }
+  });
   try {
     await startServices();
     response.json({ ok: true, servers: getLoadedBot().getServers() });

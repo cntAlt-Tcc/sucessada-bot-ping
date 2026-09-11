@@ -56,7 +56,13 @@ function getServers() {
     memberCount: guild.memberCount
   })) : [];
 }
-module.exports = { startBot, stopBot, getStatus, getServers };
+
+async function leaveServer(serverId) {
+  const guild = client?.guilds?.cache?.get(serverId);
+  if (!guild) throw new Error('Servidor não encontrado');
+  await guild.leave();
+  return { id: serverId };
+}
 
 async function stopBot() {
   if (client) await client.destroy();
@@ -64,4 +70,4 @@ async function stopBot() {
   connectionPromise = undefined;
 }
 
-module.exports = { startBot, stopBot, getStatus };
+module.exports = { startBot, stopBot, getStatus, getServers, leaveServer };

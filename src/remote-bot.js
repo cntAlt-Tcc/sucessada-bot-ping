@@ -4,7 +4,6 @@ const { readFile, writeFile } = require('./storage');
 
 const REMOTE_BOT_FILE = '/byabot/source/src/bot.js';
 const LOCAL_BOT_FILE = path.join(__dirname, 'bot.js');
-
 let loadedBot;
 
 async function loadRemoteBot() {
@@ -20,7 +19,35 @@ async function loadRemoteBot() {
   const remoteModule = new Module(REMOTE_BOT_FILE, module);
   remoteModule.filename = LOCAL_BOT_FILE;
   remoteModule.paths = Module._nodeModulePaths(path.join(__dirname, '..'));
-  const compatibility = `\nif (typeof module.exports.stopBot !== 'function') {\n  module.exports.stopBot = async function stopBot() {\n    if (typeof client !== 'undefined' && client) await client.destroy();\n    if (typeof client !== 'undefined') client = undefined;\n    if (typeof connectionPromise !== 'undefined') connectionPromise = undefined;\n  };\n}\nif (typeof module.exports.getServers !== 'function') {\n  module.exports.getServers = function getServers() {\n    return typeof client !== 'undefined' && client?.guilds?.cache\n      ? [...client.guilds.cache.values()].map(guild => ({ id: guild.id, name: guild.name, icon: guild.iconURL({ size: 64 }), memberCount: guild.memberCount }))\n      : [];\n  };\n}\n`;
+  const compatibility = `
+if (typeof module.exports.stopBot !== 'function') {
+  module.exports.stopBot = async function stopBot() {
+    if (typeof client !== 'undefined' && client) await client.destroy();
+    if (typeof client !== 'undefined') client = undefined;
+    if (typeof connectionPromise !== 'undefined') connectionPromise = undefined;
+  };
+}
+if (typeof module.exports.getServers !== 'function') {
+  module.exports.getServers = function getServers() {
+    return typeof client !== 'undefined' && client?.guilds?.cache
+      ? [...client.guilds.cache.values()].map(guild => ({
+        id: guild.id,
+        name: guild.name,
+        icon: guild.iconURL({ size: 64 }),
+        memberCount: guild.memberCount
+      }))
+      : [];
+  };
+}
+if (typeof module.exports.leaveServer !== 'function') {
+  module.exports.leaveServer = async function leaveServer(serverId) {
+    const guild = typeof client !== 'undefined' && client?.guilds?.cache?.get(serverId);
+    if (!guild) throw new Error('Servidor não encontrado');
+    await guild.leave();
+    return { id: serverId };
+  };
+}
+`;
   remoteModule._compile(`${source}${compatibility}`, LOCAL_BOT_FILE);
 
   if (typeof remoteModule.exports.startBot !== 'function' || typeof remoteModule.exports.getStatus !== 'function') {
