@@ -26,6 +26,7 @@ async function seedSourceFile(source) {
   try {
     return await readFile(`${SOURCE_ROOT}/${source.file}`);
   } catch (error) {
+    if (error.status !== 404) throw error;
     const content = await fs.readFile(path.join(__dirname, '..', source.file), 'utf8');
     await writeFile(`${SOURCE_ROOT}/${source.file}`, content);
     return content;
@@ -45,6 +46,7 @@ async function startServices() {
       })
       .then(() => ensureRootFolder())
       .then(() => ensureFolder(SOURCE_ROOT))
+      .then(() => ensureFolder(`${SOURCE_ROOT}/src`))
       .catch(error => {
         if (!error.startupStep) error.startupStep = 'storage';
         throw error;
@@ -94,6 +96,7 @@ app.get('/api/admin/source/:id', requireAdmin.bind(null, config), async (request
   if (!source) return response.status(404).json({ ok: false, error: 'source_not_found' });
   try {
     await ensureFolder(SOURCE_ROOT);
+    await ensureFolder(`${SOURCE_ROOT}/src`);
     response.json({ ok: true, ...source, content: await seedSourceFile(source) });
   } catch (error) {
     console.error('Falha ao ler source:', error);

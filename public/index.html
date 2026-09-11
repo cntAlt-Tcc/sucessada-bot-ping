@@ -29,14 +29,14 @@
       <div class="dashboard-grid">
         <aside class="sidebar">
           <div class="side-label">NAVIGATION</div>
-          <button class="nav-item active" type="button"><span class="nav-icon">▦</span> Overview</button>
-          <button class="nav-item" type="button"><span class="nav-icon">&lt;/&gt;</span> Source</button>
+          <button id="overview-nav" class="nav-item active" type="button"><span class="nav-icon">▦</span> Overview</button>
+          <button id="source-nav" class="nav-item" type="button"><span class="nav-icon">&lt;/&gt;</span> Source</button>
           <div class="side-label spaced">RUNTIME</div>
           <div class="runtime-card"><span class="signal"></span><div><strong>Bot process</strong><small id="side-status">Aguardando</small></div></div>
           <div class="side-footer">BYA SYSTEMS <span>v1.0.0</span></div>
         </aside>
         <main class="main-content">
-          <div class="welcome-row"><div><p class="eyebrow">OVERVIEW / 24.07.26</p><h2>Boa noite, operador.</h2></div><button id="refresh" class="outline-button" type="button">Atualizar <span>↻</span></button></div>
+          <div class="welcome-row"><div><p class="eyebrow">OVERVIEW / <span id="current-date">--</span></p><h2>Boa noite, operador.</h2></div><button id="refresh" class="outline-button" type="button">Atualizar <span>↻</span></button></div>
           <section class="metrics">
             <article class="metric-card accent"><span class="metric-label">BOT STATUS</span><strong id="metric-status">OFFLINE</strong><small><i id="status-pulse"></i><span id="metric-detail">Verificando runtime</span></small></article>
             <article class="metric-card"><span class="metric-label">GATEWAY PING</span><strong id="metric-ping">-- <em>ms</em></strong><small>Discord websocket</small></article>

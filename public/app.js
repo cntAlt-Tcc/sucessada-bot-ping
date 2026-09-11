@@ -31,6 +31,7 @@ function showApp() {
   appView.classList.remove('hidden');
   loadSources();
   loadRuntime();
+  document.querySelector('#current-date').textContent = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date());
 }
 
 async function loadRuntime() {
@@ -124,5 +125,16 @@ editor.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') saveButton.click();
 });
 document.querySelector('#refresh').onclick = () => { loadSources(); loadRuntime(); };
+document.querySelector('#overview-nav').onclick = event => {
+  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+document.querySelector('#source-nav').onclick = event => {
+  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.querySelector('.source-shell').scrollIntoView({ behavior: 'smooth' });
+  document.querySelector('.file-item')?.click();
+};
 document.querySelector('#logout').onclick = async () => { await api('/api/admin/logout', { method: 'POST' }); location.reload(); };
 checkSession().catch(() => {});

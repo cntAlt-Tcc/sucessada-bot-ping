@@ -7,6 +7,10 @@ const TOKEN_REFRESH_MARGIN_SECONDS = 60;
 let token;
 let tokenExpiresAt = 0;
 
+function apiPath(path) {
+  return path.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
+}
+
 function decodeTokenExpiration(jwt) {
   try {
     const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf8'));
@@ -64,7 +68,9 @@ async function request(path, options = {}, retry = true) {
 
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(`Erro no armazenamento (${response.status})`);
+    const error = new Error(`Erro no armazenamento (${response.status})`);
+    error.status = response.status;
+    throw error;
   }
   return body?.data ?? body;
 }
@@ -85,13 +91,16 @@ async function ensureFolder(path) {
 }
 
 async function readFile(name) {
-  return request(`/api/files/${encodeURIComponent(`${ROOT}/${name}`)}`);
+  const result = await request(`/api/files/${apiPath(`${ROOT}/${name}`)}`);
+  if (typeof result === 'string') return result;
+  if (typeof result?.content === 'string') return result.content;
+  return result;
 }
 
 async function writeFile(name, content) {
   const path = `${ROOT}/${name}`;
   try {
-    return await request(`/api/files/${encodeURIComponent(path)}`, {
+    return await request(`/api/files/${apiPath(path)}`, {
       method: 'PUT',
       body: JSON.stringify({ content })
     });
@@ -106,7 +115,7 @@ async function writeFile(name, content) {
 
 async function listFolder(path = ROOT) {
   if (path === ROOT) return request('/api/folders/');
-  return request(`/api/folders/${encodeURIComponent(path.replace(/^\//, ''))}`);
+  return request(`/api/folders/${apiPath(path)}`);
 }
 
 module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, writeFile };
