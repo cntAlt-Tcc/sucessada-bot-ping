@@ -93,6 +93,16 @@ app.get('/api/admin/logs', requireAdmin.bind(null, config), (request, response) 
   response.json({ ok: true, entries: getEntries(request.query.since) });
 });
 
+app.get('/api/admin/servers', requireAdmin.bind(null, config), async (_request, response) => {
+  try {
+    await startServices();
+    response.json({ ok: true, servers: getLoadedBot().getServers() });
+  } catch (error) {
+    console.error('Falha ao listar servidores:', error);
+    response.status(503).json({ ok: false, error: 'servers_unavailable' });
+  }
+});
+
 app.get('/api/admin/source/:id', requireAdmin.bind(null, config), async (request, response) => {
   const source = getSourceFile(request.params.id);
   if (!source) return response.status(404).json({ ok: false, error: 'source_not_found' });

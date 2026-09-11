@@ -30,11 +30,30 @@ function setRuntime(statusText, ping) {
 }
 
 function showApp() {
+
+  async function loadServers() {
+    const list = document.querySelector('#servers-list');
+    try {
+      const result = await api('/api/admin/servers');
+      document.querySelector('#metric-servers').textContent = String(result.servers.length).padStart(2, '0');
+      document.querySelector('#server-count').textContent = `${result.servers.length} SERVERS`;
+      list.innerHTML = result.servers.length ? '' : '<span class="muted">Nenhum servidor encontrado.</span>';
+      result.servers.forEach(server => {
+        const card = document.createElement('article');
+        card.className = 'server-card';
+        const initial = server.name.slice(0, 1).toUpperCase();
+        card.innerHTML = `<div class="server-avatar">${server.icon ? `<img src="${server.icon}" alt="">` : initial}</div><div class="server-info"><strong></strong><small>ID ${server.id}</small></div><div class="server-members"><b>${server.memberCount ?? '--'}</b><small>members</small></div><span class="server-online">ONLINE</span>`;
+        card.querySelector('.server-info strong').textContent = server.name;
+        list.appendChild(card);
+      });
+    } catch (error) { list.innerHTML = `<span class="error">${error.message}</span>`; }
+  }
   loginView.classList.add('hidden');
   appView.classList.remove('hidden');
   loadSources();
   loadRuntime();
   loadLogs();
+  loadServers();
   document.querySelector('#current-date').textContent = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date());
 }
 
@@ -73,7 +92,6 @@ async function loadSources() {
   fileList.innerHTML = '<span class="muted">Carregando source...</span>';
   try {
     const result = await api('/api/admin/source');
-    document.querySelector('#metric-files').textContent = String(result.files.length).padStart(2, '0');
     fileList.innerHTML = '';
     result.files.forEach(source => {
       const button = document.createElement('button');
@@ -152,6 +170,8 @@ function showView(view) {
   document.querySelectorAll('.view').forEach(page => page.classList.toggle('view-active', page.dataset.page === view));
   if (view === 'source') document.querySelector('.file-item')?.click();
   if (view === 'logs') loadLogs();
+    if (view === 'servers') loadServers();
+  document.querySelector('#servers-refresh').onclick = loadServers;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 document.querySelectorAll('[data-view]').forEach(button => button.onclick = () => showView(button.dataset.view));

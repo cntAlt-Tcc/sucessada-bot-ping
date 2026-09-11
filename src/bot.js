@@ -48,6 +48,16 @@ function getStatus() {
   };
 }
 
+function getServers() {
+  return client?.guilds?.cache ? [...client.guilds.cache.values()].map(guild => ({
+    id: guild.id,
+    name: guild.name,
+    icon: guild.iconURL({ size: 64 }),
+    memberCount: guild.memberCount
+  })) : [];
+}
+module.exports = { startBot, stopBot, getStatus, getServers };
+
 async function stopBot() {
   if (client) await client.destroy();
   client = undefined;

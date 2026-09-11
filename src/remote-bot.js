@@ -20,8 +20,8 @@ async function loadRemoteBot() {
   const remoteModule = new Module(REMOTE_BOT_FILE, module);
   remoteModule.filename = LOCAL_BOT_FILE;
   remoteModule.paths = Module._nodeModulePaths(path.join(__dirname, '..'));
-  const compatibilityStop = `\nif (typeof module.exports.stopBot !== 'function') {\n  module.exports.stopBot = async function stopBot() {\n    if (typeof client !== 'undefined' && client) await client.destroy();\n    if (typeof client !== 'undefined') client = undefined;\n    if (typeof connectionPromise !== 'undefined') connectionPromise = undefined;\n  };\n}\n`;
-  remoteModule._compile(`${source}${compatibilityStop}`, LOCAL_BOT_FILE);
+  const compatibility = `\nif (typeof module.exports.stopBot !== 'function') {\n  module.exports.stopBot = async function stopBot() {\n    if (typeof client !== 'undefined' && client) await client.destroy();\n    if (typeof client !== 'undefined') client = undefined;\n    if (typeof connectionPromise !== 'undefined') connectionPromise = undefined;\n  };\n}\nif (typeof module.exports.getServers !== 'function') {\n  module.exports.getServers = function getServers() {\n    return typeof client !== 'undefined' && client?.guilds?.cache\n      ? [...client.guilds.cache.values()].map(guild => ({ id: guild.id, name: guild.name, icon: guild.iconURL({ size: 64 }), memberCount: guild.memberCount }))\n      : [];\n  };\n}\n`;
+  remoteModule._compile(`${source}${compatibility}`, LOCAL_BOT_FILE);
 
   if (typeof remoteModule.exports.startBot !== 'function' || typeof remoteModule.exports.getStatus !== 'function') {
     throw new Error('O source remoto precisa exportar startBot e getStatus');
