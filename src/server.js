@@ -418,7 +418,8 @@ app.get('/on', async (_request, response) => {
     response.status(503).json({
       ok: false,
       service: 'offline',
-      error: error.startupStep ? `${error.startupStep}_startup_failed` : 'startup_failed'
+      error: error.startupStep ? `${error.startupStep}_startup_failed` : 'startup_failed',
+      code: error.message?.startsWith('Variáveis ausentes:') ? 'CONFIG_MISSING' : undefined
     });
   }
 });
