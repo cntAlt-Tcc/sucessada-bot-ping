@@ -121,6 +121,15 @@ async function seedSourceFile(source) {
 
 let startupPromise;
 
+function getStartupCode(error) {
+  const message = String(error?.message || '');
+  if (message === 'Used disallowed intents') return 'DISALLOWED_INTENTS';
+  if (/token|login|authenticate/i.test(message) && /invalid|incorrect|failed|unauthorized/i.test(message)) return 'INVALID_DISCORD_TOKEN';
+  if (/source remoto precisa exportar/i.test(message)) return 'INVALID_REMOTE_SOURCE_EXPORTS';
+  if (/unexpected token|syntaxerror|is not defined/i.test(message)) return 'REMOTE_SOURCE_CODE_ERROR';
+  return 'DISCORD_LOGIN_FAILED';
+}
+
 async function startServices() {
   if (!startupPromise) {
     logEvent('info', 'startup_begin', 'Inicialização do serviço iniciada', { stage: 'startup' });
@@ -148,7 +157,7 @@ async function startServices() {
         logEvent('info', 'discord_login_ok', 'Bot conectado ao Discord', { stage: 'discord', meta: bot.getStatus() });
       } catch (error) {
         error.startupStep = 'discord';
-        logEvent('error', 'startup_failed', 'Falha na inicialização do Discord', { stage: 'discord', code: error.message === 'Used disallowed intents' ? 'DISALLOWED_INTENTS' : 'DISCORD_LOGIN_FAILED', error });
+        logEvent('error', 'startup_failed', 'Falha na inicialização do Discord', { stage: 'discord', code: getStartupCode(error), error });
         throw error;
       }
 
@@ -419,7 +428,11 @@ app.get('/on', async (_request, response) => {
       ok: false,
       service: 'offline',
       error: error.startupStep ? `${error.startupStep}_startup_failed` : 'startup_failed',
-      code: error.message?.startsWith('Variáveis ausentes:') ? 'CONFIG_MISSING' : undefined
+      code: error.message?.startsWith('Variáveis ausentes:')
+        ? 'CONFIG_MISSING'
+        : error.startupStep === 'discord'
+          ? getStartupCode(error)
+          : undefined
     });
   }
 });
