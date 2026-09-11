@@ -11,6 +11,13 @@ function apiPath(path) {
   return path.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
 }
 
+function storagePath(name) {
+  const normalized = `/${String(name).replace(/^\/+/, '')}`;
+  return normalized === ROOT || normalized.startsWith(`${ROOT}/`)
+    ? normalized
+    : `${ROOT}${normalized}`;
+}
+
 function decodeTokenExpiration(jwt) {
   try {
     const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf8'));
@@ -91,14 +98,15 @@ async function ensureFolder(path) {
 }
 
 async function readFile(name) {
-  const result = await request(`/api/files/${apiPath(`${ROOT}/${name}`)}`);
+  const path = storagePath(name);
+  const result = await request(`/api/files/${apiPath(path)}`);
   if (typeof result === 'string') return result;
   if (typeof result?.content === 'string') return result.content;
   return result;
 }
 
 async function writeFile(name, content) {
-  const path = `${ROOT}/${name}`;
+  const path = storagePath(name);
   try {
     return await request(`/api/files/${apiPath(path)}`, {
       method: 'PUT',
