@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const config = require('./config');
-const { copyPath, deleteFile, deleteFolder, ensureFolder, ensureRootFolder, getStorageRoot, listFolder, movePath, movePathAt, readFile, readFileAt, uploadFile, writeFile, writeFileAt, setStorageRoot } = require('./storage');
+const { copyPath, deleteFile, deleteFolder, ensureFolder, ensureRootFolder, getStorageRoot, listFolder, movePath, movePathAt, readFile, uploadFile, writeFile, setStorageRoot } = require('./storage');
 const { loadRemoteBot, getLoadedBot, getRemoteBotFile } = require('./remote-bot');
 const { clear, event: logEvent, getEntries, getSummary, install: installLogger } = require('./logger');
 const { createSession, getCookie, isValidSession, requireAdmin, setSessionCookie } = require('./admin');
@@ -28,6 +28,7 @@ app.use((request, response, next) => {
 
 const SOURCE_FILES = [{ id: 'bot', label: 'Bot Discord', file: 'src/bot.js' }];
 const DEFAULT_BOT_NAME = 'byabot';
+const LOCAL_BOT_NAME_FILE = path.join(__dirname, '..', 'botname.json');
 let botName = DEFAULT_BOT_NAME;
 let SOURCE_ROOT = '/byabot/source';
 
@@ -44,15 +45,11 @@ function setBotName(value) {
 async function loadBotIdentity() {
   let identity;
   try {
-    identity = JSON.parse(await readFileAt('/byabot/botname.json'));
+    identity = JSON.parse(await fs.readFile(LOCAL_BOT_NAME_FILE, 'utf8'));
   } catch (error) {
-    if (error.status !== 404) throw error;
-    try {
-      identity = JSON.parse(await fs.readFile(path.join(__dirname, '..', 'botname.json'), 'utf8'));
-    } catch {
-      identity = { name: DEFAULT_BOT_NAME };
-    }
-    await writeFileAt('/byabot/botname.json', JSON.stringify(identity, null, 2));
+    if (error.code !== 'ENOENT') throw error;
+    identity = { name: DEFAULT_BOT_NAME };
+    await fs.writeFile(LOCAL_BOT_NAME_FILE, JSON.stringify(identity, null, 2));
   }
   if (!validBotName(identity?.name)) throw new Error('botname.json inválido');
   setBotName(identity.name);
@@ -217,12 +214,16 @@ app.put('/api/admin/bot-name', requireAdmin.bind(null, config), async (request, 
     await ensureRootFolder();
     await ensureFolder(`${SOURCE_ROOT}/src`);
     await writeFile('botname.json', JSON.stringify({ name: botName }, null, 2));
-    await writeFileAt('/byabot/botname.json', JSON.stringify({ name: botName }, null, 2));
+    await fs.writeFile(LOCAL_BOT_NAME_FILE, JSON.stringify({ name: botName }, null, 2));
     await loadRemoteBot();
     await getLoadedBot().startBot();
     response.json({ ok: true, name: botName, root: getStorageRoot(), changed: true });
   } catch (error) {
+    if (getStorageRoot() === nextRoot) {
+      await movePathAt(nextRoot, previousRoot).catch(() => {});
+    }
     setBotName(previousName);
+    await fs.writeFile(LOCAL_BOT_NAME_FILE, JSON.stringify({ name: previousName }, null, 2)).catch(() => {});
     console.error('Falha ao renomear bot:', error);
     response.status(502).json({ ok: false, error: 'bot_rename_failed' });
   }
