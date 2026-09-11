@@ -1,13 +1,15 @@
 const express = require('express');
+const multer = require('multer');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const config = require('./config');
-const { deleteFile, deleteFolder, ensureFolder, ensureRootFolder, listFolder, readFile, writeFile } = require('./storage');
+const { copyPath, deleteFile, deleteFolder, ensureFolder, ensureRootFolder, listFolder, movePath, readFile, uploadFile, writeFile } = require('./storage');
 const { loadRemoteBot, getLoadedBot, REMOTE_BOT_FILE } = require('./remote-bot');
 const { getEntries, install: installLogger } = require('./logger');
 const { createSession, getCookie, isValidSession, requireAdmin, setSessionCookie } = require('./admin');
 
 const app = express();
+const upload = multer({ storage: multer.memoryStorage(), limits: { files: 20, fileSize: 10 * 1024 * 1024 } });
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 installLogger();
@@ -201,6 +203,43 @@ app.delete('/api/admin/source/item', requireAdmin.bind(null, config), async (req
     response.json({ ok: true, path, type });
   } catch (error) {
     response.status(400).json({ ok: false, error: 'source_delete_failed' });
+  }
+});
+
+app.post('/api/admin/source/copy', requireAdmin.bind(null, config), async (request, response) => {
+  try {
+    const source = sourcePath(request.body?.source);
+    const destination = sourcePath(request.body?.destination);
+    await copyPath(source, destination);
+    response.json({ ok: true, source, destination });
+  } catch (error) {
+    response.status(400).json({ ok: false, error: 'source_copy_failed' });
+  }
+});
+
+app.post('/api/admin/source/move', requireAdmin.bind(null, config), async (request, response) => {
+  try {
+    const source = sourcePath(request.body?.source);
+    const destination = sourcePath(request.body?.destination);
+    await movePath(source, destination);
+    response.json({ ok: true, source, destination });
+  } catch (error) {
+    response.status(400).json({ ok: false, error: 'source_move_failed' });
+  }
+});
+
+app.post('/api/admin/source/upload', requireAdmin.bind(null, config), upload.array('files', 20), async (request, response) => {
+  try {
+    const folder = sourcePath(request.body?.folder);
+    if (!Array.isArray(request.files) || request.files.length === 0) return response.status(400).json({ ok: false, error: 'files_required' });
+    const results = [];
+    for (const file of request.files) {
+      const safeName = path.basename(file.originalname).replace(/[^\w.-]/g, '_');
+      results.push(await uploadFile(`${folder}/${safeName}`, { ...file, originalname: safeName }));
+    }
+    response.status(201).json({ ok: true, files: results });
+  } catch (error) {
+    response.status(400).json({ ok: false, error: 'source_upload_failed' });
   }
 });
 

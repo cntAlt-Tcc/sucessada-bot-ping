@@ -11,6 +11,7 @@ const lineCount = document.querySelector('#line-count');
 let selectedSource = '';
 let lastLogId = '';
 let selectedItem = null;
+let clipboardItem = null;
 
 async function api(url, options) {
   const response = await fetch(url, { credentials: 'same-origin', ...options });
@@ -121,6 +122,7 @@ async function loadTree() {
         button.style.paddingLeft = `${9 + depth * 16}px`;
         button.innerHTML = `<span class="code-badge">${item.type === 'folder' ? 'DIR' : 'JS'}</span><span><b>${item.name}</b><small>${item.type === 'folder' ? 'pasta' : 'arquivo'}</small></span>`;
         button.onclick = () => item.type === 'folder' ? button.classList.toggle('expanded') : openItem(item, button);
+        button.oncontextmenu = event => { event.preventDefault(); showContextMenu(event.clientX, event.clientY, item); };
         fileList.appendChild(button);
         if (item.children) render(item.children, depth + 1);
       });
@@ -130,6 +132,55 @@ async function loadTree() {
     if (!fileList.children.length) fileList.innerHTML = '<span class="muted">Nenhum arquivo ainda.</span>';
   } catch (error) {
     fileList.innerHTML = `<span class="error">${error.message}</span>`;
+  }
+}
+
+function parentPath(item) {
+  return item.type === 'folder' ? item.path : item.path.slice(0, item.path.lastIndexOf('/'));
+}
+
+function showContextMenu(x, y, item) {
+  selectedItem = item;
+  const menu = document.querySelector('#context-menu');
+  const actions = item.type === 'folder'
+    ? [['copy', 'Copiar'], ['cut', 'Recortar'], ['new-file', 'Novo arquivo'], ['new-folder', 'Nova pasta'], ['upload', 'Upload de arquivos'], ['paste', 'Colar'], ['delete', 'Excluir pasta']]
+    : [['copy', 'Copiar'], ['cut', 'Recortar'], ['delete', 'Excluir arquivo']];
+  menu.innerHTML = actions.map(([action, label]) => `<button data-action="${action}" type="button">${label}</button>`).join('');
+  menu.classList.remove('hidden');
+  menu.style.left = `${Math.min(x, window.innerWidth - 190)}px`;
+  menu.style.top = `${Math.min(y, window.innerHeight - actions.length * 42 - 12)}px`;
+  menu.querySelectorAll('button').forEach(button => button.onclick = () => runContextAction(button.dataset.action, item));
+}
+
+function hideContextMenu() { document.querySelector('#context-menu').classList.add('hidden'); }
+
+async function runContextAction(action, item) {
+  hideContextMenu();
+  if (action === 'copy' || action === 'cut') {
+    clipboardItem = { ...item, operation: action };
+    status.textContent = action === 'copy' ? 'item copiado' : 'item recortado';
+    return;
+  }
+  if (action === 'new-file' || action === 'new-folder') {
+    const name = window.prompt(`Nome do ${action === 'new-file' ? 'arquivo' : 'pasta'}`);
+    if (name) await createSourceItem(action === 'new-file' ? 'file' : 'folder', `${item.path}/${name}`);
+    return;
+  }
+  if (action === 'upload') { document.querySelector('#upload-input').dataset.folder = item.path; document.querySelector('#upload-input').click(); return; }
+  if (action === 'paste') {
+    if (!clipboardItem) return window.alert('Nada copiado ou recortado.');
+    const destination = `${item.path}/${clipboardItem.name}`;
+    try {
+      await api(`/api/admin/source/${clipboardItem.operation === 'copy' ? 'copy' : 'move'}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source: clipboardItem.path, destination }) });
+      if (clipboardItem.operation === 'cut') clipboardItem = null;
+      await loadTree();
+    } catch (error) { window.alert(`Não foi possível colar: ${error.message}`); }
+    return;
+  }
+  if (action === 'delete') {
+    if (!window.confirm(`Excluir ${item.path}?`)) return;
+    try { await api('/api/admin/source/item', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: item.path, type: item.type }) }); selectedItem = null; await loadTree(); }
+    catch (error) { window.alert(`Não foi possível excluir: ${error.message}`); }
   }
 }
 
@@ -207,6 +258,16 @@ document.querySelector('#new-file').onclick = async () => {
   const parent = selectedItem?.type === 'folder' ? selectedItem.path : '/byabot/source';
   await createSourceItem('file', `${parent}/${name}`);
 };
+document.querySelector('#upload-input').onchange = async event => {
+  const input = event.currentTarget;
+  if (!input.files.length) return;
+  const form = new FormData();
+  form.append('folder', input.dataset.folder || '/byabot/source');
+  [...input.files].forEach(file => form.append('files', file));
+  try { await api('/api/admin/source/upload', { method: 'POST', body: form }); status.textContent = 'upload concluído'; await loadTree(); }
+  catch (error) { window.alert(`Não foi possível enviar: ${error.message}`); }
+  input.value = '';
+};
 async function createSourceItem(type, path) {
   try {
     await api(`/api/admin/source/${type}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path, content: '' }) });
@@ -221,6 +282,8 @@ document.querySelector('#delete-item').onclick = async () => {
     selectedItem = null; editor.value = ''; editor.disabled = true; saveButton.disabled = true; document.querySelector('#delete-item').classList.add('hidden'); await loadTree();
   } catch (error) { window.alert(`Não foi possível excluir: ${error.message}`); }
 };
+document.addEventListener('click', hideContextMenu);
+window.addEventListener('resize', hideContextMenu);
 function showView(view) {
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
   document.querySelector(`[data-view="${view}"]`).classList.add('active');

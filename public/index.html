@@ -53,6 +53,7 @@
           <section class="source-shell">
             <div class="source-toolbar"><div><p class="eyebrow">SOURCE CONTROL</p><h3>Bot source</h3></div><button id="new-folder" class="outline-button" type="button">+ Pasta</button><button id="new-file" class="outline-button" type="button">+ Arquivo</button><span id="status" class="status"></span><button id="save" type="button" disabled>Salvar alterações <b>⌘↵</b></button></div>
             <div class="source-workspace"><div class="source-list"><div class="list-head">PROJECT TREE <span id="tree-count">--</span></div><div id="file-list" class="file-list"></div></div><div class="editor-panel"><div class="editor-head"><span id="file-name" class="file-name">Selecione um arquivo</span><button id="delete-item" class="delete-item hidden" type="button">Excluir</button><span class="editor-lang">JAVASCRIPT</span></div><textarea id="editor" spellcheck="false" disabled placeholder="Selecione um arquivo para editar"></textarea><div class="editor-foot"><span id="editor-path">Persistido em /byabot/source</span><span id="line-count">0 lines</span></div></div></div>
+            <input id="upload-input" class="hidden" type="file" multiple>
           </section>
           </div>
           <div class="view" data-page="logs">
@@ -70,6 +71,7 @@
       </div>
     </section>
   </main>
+  <div id="context-menu" class="context-menu hidden"></div>
   <script src="/app.js"></script>
 </body>
 </html>

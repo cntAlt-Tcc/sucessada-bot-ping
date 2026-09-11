@@ -129,9 +129,28 @@ async function deleteFolder(name) {
   return request(`/api/folders/${apiPath(storagePath(name))}`, { method: 'DELETE' });
 }
 
+async function copyPath(source, destination) {
+  return request('/api/files/copy', { method: 'POST', body: JSON.stringify({ source: storagePath(source), destination: storagePath(destination) }) });
+}
+
+async function movePath(source, destination) {
+  return request('/api/files/move', { method: 'POST', body: JSON.stringify({ source: storagePath(source), destination: storagePath(destination) }) });
+}
+
+async function uploadFile(path, file) {
+  const form = new FormData();
+  form.append('path', storagePath(path));
+  form.append('file', new Blob([file.buffer], { type: file.mimetype || 'application/octet-stream' }), file.originalname);
+  const authToken = await getToken();
+  const response = await fetch(`${API_URL}/api/upload`, { method: 'POST', headers: { authorization: `Bearer ${authToken}` }, body: form });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(`Erro no upload (${response.status})`);
+  return body?.data ?? body;
+}
+
 async function listFolder(path = ROOT) {
   if (path === ROOT) return request('/api/folders/');
   return request(`/api/folders/${apiPath(path)}`);
 }
 
-module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, writeFile, deleteFile, deleteFolder };
+module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, writeFile, deleteFile, deleteFolder, copyPath, movePath, uploadFile };
