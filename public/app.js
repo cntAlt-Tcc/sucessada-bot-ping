@@ -25,6 +25,8 @@ function setRuntime(statusText, ping) {
   document.querySelector('#side-status').textContent = online ? 'Conectado agora' : 'Desconectado';
   document.querySelector('#metric-ping').innerHTML = ping == null ? '-- <em>ms</em>' : `${ping} <em>ms</em>`;
   document.querySelector('#status-pulse').className = online ? 'online' : '';
+  document.querySelector('#overview-state').textContent = online ? 'Online agora' : 'Offline';
+  document.querySelector('#overview-pulse').className = online ? 'online' : '';
 }
 
 function showApp() {
@@ -144,17 +146,15 @@ editor.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') saveButton.click();
 });
 document.querySelector('#refresh').onclick = () => { loadSources(); loadRuntime(); loadLogs(); };
-document.querySelector('#overview-nav').onclick = event => {
+function showView(view) {
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  event.currentTarget.classList.add('active');
+  document.querySelector(`[data-view="${view}"]`).classList.add('active');
+  document.querySelectorAll('.view').forEach(page => page.classList.toggle('view-active', page.dataset.page === view));
+  if (view === 'source') document.querySelector('.file-item')?.click();
+  if (view === 'logs') loadLogs();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-document.querySelector('#source-nav').onclick = event => {
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-  document.querySelector('.source-shell').scrollIntoView({ behavior: 'smooth' });
-  document.querySelector('.file-item')?.click();
-};
+}
+document.querySelectorAll('[data-view]').forEach(button => button.onclick = () => showView(button.dataset.view));
 document.querySelector('#logout').onclick = async () => { await api('/api/admin/logout', { method: 'POST' }); location.reload(); };
 checkSession().catch(() => {});
 setInterval(() => { if (!appView.classList.contains('hidden')) loadLogs(); }, 3000);

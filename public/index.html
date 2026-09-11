@@ -28,28 +28,39 @@
       </header>
       <div class="dashboard-grid">
         <aside class="sidebar">
+          <div class="sidebar-brand"><div class="brand-mark small">B<span>Y</span>A</div><span class="server-tag">PVP // 01</span></div>
           <div class="side-label">NAVIGATION</div>
-          <button id="overview-nav" class="nav-item active" type="button"><span class="nav-icon">▦</span> Overview</button>
-          <button id="source-nav" class="nav-item" type="button"><span class="nav-icon">&lt;/&gt;</span> Source</button>
+          <button id="overview-nav" class="nav-item active" data-view="overview" type="button"><span class="nav-icon">▦</span><span>Overview</span><b>01</b></button>
+          <button id="source-nav" class="nav-item" data-view="source" type="button"><span class="nav-icon">&lt;/&gt;</span><span>Bot source</span><b>02</b></button>
+          <button id="logs-nav" class="nav-item" data-view="logs" type="button"><span class="nav-icon">›_</span><span>Live console</span><b>03</b></button>
           <div class="side-label spaced">RUNTIME</div>
           <div class="runtime-card"><span class="signal"></span><div><strong>Bot process</strong><small id="side-status">Aguardando</small></div></div>
           <div class="side-footer">BYA SYSTEMS <span>v1.0.0</span></div>
         </aside>
         <main class="main-content">
-          <div class="welcome-row"><div><p class="eyebrow">OVERVIEW / <span id="current-date">--</span></p><h2>Boa noite, operador.</h2></div><button id="refresh" class="outline-button" type="button">Atualizar <span>↻</span></button></div>
-          <section class="metrics">
+          <div class="view view-active" data-page="overview">
+            <div class="welcome-row"><div><p class="eyebrow">OPERATOR DESK / <span id="current-date">--</span></p><h2>Boa noite, operador.</h2><p class="subline">Status do seu servidor em tempo real.</p></div><button id="refresh" class="outline-button" type="button">Atualizar <span>↻</span></button></div>
+            <section class="metrics">
             <article class="metric-card accent"><span class="metric-label">BOT STATUS</span><strong id="metric-status">OFFLINE</strong><small><i id="status-pulse"></i><span id="metric-detail">Verificando runtime</span></small></article>
             <article class="metric-card"><span class="metric-label">GATEWAY PING</span><strong id="metric-ping">-- <em>ms</em></strong><small>Discord websocket</small></article>
             <article class="metric-card"><span class="metric-label">BOT SOURCE</span><strong id="metric-files">01</strong><small>Arquivo gerenciado</small></article>
-          </section>
+            </section>
+            <section class="quick-panel"><div><span class="metric-label">ACTIVE MODULE</span><strong>Discord Gateway</strong><small>Conexão principal do ByaBot</small></div><div class="quick-state"><i id="overview-pulse"></i><span id="overview-state">Verificando</span></div></section>
+          </div>
+          <div class="view" data-page="source">
+            <div class="page-heading"><div><p class="eyebrow">DEVELOPMENT / 02</p><h2>Bot source</h2><p class="subline">Edite o comportamento ativo do bot.</p></div></div>
           <section class="source-shell">
             <div class="source-toolbar"><div><p class="eyebrow">SOURCE CONTROL</p><h3>Bot source</h3></div><span id="status" class="status"></span><button id="save" type="button" disabled>Salvar alterações <b>⌘↵</b></button></div>
             <div class="source-workspace"><div class="source-list"><div class="list-head">MANAGED SOURCE <span>01</span></div><div id="file-list" class="file-list"></div></div><div class="editor-panel"><div class="editor-head"><span id="file-name" class="file-name">Selecione um source</span><span class="editor-lang">JAVASCRIPT</span></div><textarea id="editor" spellcheck="false" disabled placeholder="Selecione o source do bot"></textarea><div class="editor-foot"><span>Persistido em /byabot/source/src/bot.js</span><span id="line-count">0 lines</span></div></div></div>
           </section>
+          </div>
+          <div class="view" data-page="logs">
+            <div class="page-heading"><div><p class="eyebrow">OBSERVABILITY / 03</p><h2>Live console</h2><p class="subline">Saída real do processo em execução.</p></div></div>
           <section class="logs-shell">
             <div class="source-toolbar"><div><p class="eyebrow">LIVE OUTPUT</p><h3>Console logs</h3></div><span class="status">REALTIME</span></div>
             <div id="logs" class="logs-list"><span class="muted">Aguardando logs...</span></div>
           </section>
+          </div>
         </main>
       </div>
     </section>
