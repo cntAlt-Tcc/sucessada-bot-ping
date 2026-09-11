@@ -12,6 +12,7 @@ let selectedSource = '';
 let lastLogId = '';
 let selectedItem = null;
 let clipboardItem = null;
+let logFilter = { level: '', query: '' };
 
 async function api(url, options) {
   const response = await fetch(url, { credentials: 'same-origin', ...options });
@@ -65,14 +66,15 @@ async function loadServers() {
 
 async function loadLogs() {
   try {
-    const result = await api(`/api/admin/logs${lastLogId ? `?since=${encodeURIComponent(lastLogId)}` : ''}`);
+    const params = new URLSearchParams({ ...(lastLogId ? { since: lastLogId } : {}), ...(logFilter.level ? { level: logFilter.level } : {}), ...(logFilter.query ? { query: logFilter.query } : {}) });
+    const result = await api(`/api/admin/logs?${params}`);
     const logs = document.querySelector('#logs');
-    if (!lastLogId) logs.innerHTML = '';
+    if (!lastLogId || logFilter.level || logFilter.query) logs.innerHTML = '';
     result.entries.forEach(entry => {
       const row = document.createElement('div');
       row.className = `log-row ${entry.level}`;
-      row.innerHTML = `<time>${new Date(entry.at).toLocaleTimeString('pt-BR')}</time><b>${entry.level.toUpperCase()}</b><span></span>`;
-      row.querySelector('span').textContent = entry.message;
+      row.innerHTML = `<time>${new Date(entry.at).toLocaleTimeString('pt-BR')}</time><b>${entry.level.toUpperCase()}</b><span class="log-event">${entry.event}${entry.code ? ` · ${entry.code}` : ''}</span><span class="log-message"></span>`;
+      row.querySelector('.log-message').textContent = `${entry.stage ? `[${entry.stage}] ` : ''}${entry.message}`;
       logs.appendChild(row);
       lastLogId = entry.id;
     });
@@ -246,6 +248,9 @@ editor.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') saveButton.click();
 });
 document.querySelector('#refresh').onclick = () => { loadTree(); loadRuntime(); loadLogs(); };
+document.querySelector('#log-level').onchange = event => { logFilter.level = event.target.value; lastLogId = ''; loadLogs(); };
+document.querySelector('#log-query').oninput = event => { logFilter.query = event.target.value.trim(); lastLogId = ''; loadLogs(); };
+document.querySelector('#clear-logs').onclick = async () => { await api('/api/admin/logs', { method: 'DELETE' }); lastLogId = ''; loadLogs(); };
 document.querySelector('#new-folder').onclick = async () => {
   const name = window.prompt('Nome da pasta, exemplo: components');
   if (!name) return;

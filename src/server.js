@@ -5,7 +5,7 @@ const fs = require('node:fs/promises');
 const config = require('./config');
 const { copyPath, deleteFile, deleteFolder, ensureFolder, ensureRootFolder, listFolder, movePath, readFile, uploadFile, writeFile } = require('./storage');
 const { loadRemoteBot, getLoadedBot, REMOTE_BOT_FILE } = require('./remote-bot');
-const { getEntries, install: installLogger } = require('./logger');
+const { clear, event: logEvent, getEntries, getSummary, install: installLogger } = require('./logger');
 const { createSession, getCookie, isValidSession, requireAdmin, setSessionCookie } = require('./admin');
 
 const app = express();
@@ -13,6 +13,18 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { files: 20, fi
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 installLogger();
+app.use((request, response, next) => {
+  const requestId = request.headers['x-request-id'] || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  request.requestId = requestId;
+  const startedAt = Date.now();
+  response.setHeader('x-request-id', requestId);
+  response.on('finish', () => {
+    if (request.path.startsWith('/api/')) {
+      logEvent(response.statusCode >= 400 ? 'warn' : 'info', 'http_request', `${request.method} ${request.path} ${response.statusCode}`, { requestId, meta: { durationMs: Date.now() - startedAt } });
+    }
+  });
+  next();
+});
 
 const SOURCE_FILES = [{ id: 'bot', label: 'Bot Discord', file: 'src/bot.js' }];
 const SOURCE_ROOT = '/byabot/source';
@@ -82,27 +94,33 @@ let startupPromise;
 
 async function startServices() {
   if (!startupPromise) {
+    logEvent('info', 'startup_begin', 'Inicialização do serviço iniciada', { stage: 'startup' });
     startupPromise = Promise.resolve()
-      .then(() => config.validateConfig())
-      .then(() => ensureRootFolder())
+      .then(() => { logEvent('info', 'config_validate_start', 'Validando configuração', { stage: 'config' }); config.validateConfig(); logEvent('info', 'config_validate_ok', 'Configuração válida', { stage: 'config' }); })
+      .then(() => { logEvent('info', 'storage_connect_start', 'Conectando à API File', { stage: 'storage' }); return ensureRootFolder(); })
+      .then(() => logEvent('info', 'storage_connect_ok', 'API File disponível', { stage: 'storage' }))
       .catch(error => {
         error.startupStep = 'storage';
+        logEvent('error', 'startup_failed', 'Falha na etapa de armazenamento', { stage: 'storage', code: `STORAGE_${error.status || 'UNAVAILABLE'}`, error });
         throw error;
       })
       .then(() => ensureFolder(SOURCE_ROOT))
       .then(() => ensureFolder(`${SOURCE_ROOT}/src`))
-      .then(() => loadRemoteBot())
-      .then(bot => bot.startBot())
+      .then(() => { logEvent('info', 'remote_source_load_start', `Carregando ${REMOTE_BOT_FILE}`, { stage: 'remote_source' }); return loadRemoteBot(); })
+      .then(bot => { logEvent('info', 'discord_login_start', 'Conectando ao Gateway Discord', { stage: 'discord' }); return bot.startBot(); })
+      .then(bot => { logEvent('info', 'discord_login_ok', 'Bot conectado ao Discord', { stage: 'discord', meta: bot.getStatus() }); return bot; })
       .catch(error => {
         if (!error.startupStep) error.startupStep = 'discord';
+        logEvent('error', 'startup_failed', 'Falha na inicialização do Discord', { stage: error.startupStep, code: error.message === 'Used disallowed intents' ? 'DISALLOWED_INTENTS' : 'DISCORD_LOGIN_FAILED', error });
         throw error;
       })
       .then(() => writeFile('runtime.json', JSON.stringify({
         lastStartedAt: new Date().toISOString(),
         bot: getLoadedBot().getStatus()
-      }, null, 2)))
+      }, null, 2)).then(() => logEvent('info', 'startup_complete', 'Serviço iniciado com sucesso', { stage: 'runtime' })))
       .catch(error => {
         startupPromise = undefined;
+        logEvent('error', 'startup_failed', 'Inicialização encerrada com erro', { stage: error.startupStep || 'runtime', code: 'STARTUP_FAILED', error });
         throw error;
       });
   }
@@ -244,7 +262,13 @@ app.post('/api/admin/source/upload', requireAdmin.bind(null, config), upload.arr
 });
 
 app.get('/api/admin/logs', requireAdmin.bind(null, config), (request, response) => {
-  response.json({ ok: true, entries: getEntries(request.query.since) });
+  response.json({ ok: true, entries: getEntries(request.query), summary: getSummary() });
+});
+
+app.delete('/api/admin/logs', requireAdmin.bind(null, config), (_request, response) => {
+  clear();
+  logEvent('info', 'logs_cleared', 'Console limpo pelo operador', { stage: 'admin' });
+  response.json({ ok: true });
 });
 
 app.get('/api/admin/servers', requireAdmin.bind(null, config), async (_request, response) => {

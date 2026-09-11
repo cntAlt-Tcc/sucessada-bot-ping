@@ -59,7 +59,7 @@
           <div class="view" data-page="logs">
             <div class="page-heading"><div><p class="eyebrow">OBSERVABILITY / 03</p><h2>Live console</h2><p class="subline">Saída real do processo em execução.</p></div></div>
           <section class="logs-shell">
-            <div class="source-toolbar"><div><p class="eyebrow">LIVE OUTPUT</p><h3>Console logs</h3></div><span class="status">REALTIME</span></div>
+            <div class="source-toolbar"><div><p class="eyebrow">LIVE OUTPUT</p><h3>Console logs</h3></div><select id="log-level"><option value="">Todos os níveis</option><option value="error">Erros</option><option value="warn">Avisos</option><option value="info">Informações</option></select><input id="log-query" class="log-query" type="search" placeholder="Buscar evento ou código"><button id="clear-logs" class="outline-button" type="button">Limpar</button><span class="status">REALTIME</span></div>
             <div id="logs" class="logs-list"><span class="muted">Aguardando logs...</span></div>
           </section>
           </div>
