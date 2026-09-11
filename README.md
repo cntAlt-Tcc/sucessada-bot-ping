@@ -24,9 +24,12 @@ CONFIG_DISCORD_TOKEN
 CONFIG_STORAGE_USERNAME
 CONFIG_STORAGE_PASSWORD
 CONFIG_STORAGE_API_URL=https://apifile.netlify.app
+CONFIG_PANEL_PASSWORD=uma_senha_forte_para_o_painel
 ```
 
 As credenciais são lidas diretamente em runtime e nunca são gravadas no repositório. Faça um novo deploy ou redeploy depois de cadastrar as variáveis.
+
+Na rota principal `/`, o painel pede `CONFIG_PANEL_PASSWORD`. Depois do login, ele lista e edita os arquivos da pasta `/byabot` através do backend. O navegador nunca acessa a API File diretamente.
 
 Se `/on` retornar `discord_startup_failed`, revise o token Discord e habilite o **Message Content Intent**. Se retornar `storage_startup_failed`, revise usuário e senha da API File. A resposta não mostra credenciais.
 

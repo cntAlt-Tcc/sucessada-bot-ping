@@ -1,6 +1,7 @@
 const config = {
   discordToken: process.env.CONFIG_DISCORD_TOKEN?.trim(),
   port: Number(process.env.PORT || 3000),
+  panelPassword: process.env.CONFIG_PANEL_PASSWORD?.trim(),
   storage: {
     apiUrl: (process.env.CONFIG_STORAGE_API_URL || 'https://apifile.netlify.app').replace(/\/$/, ''),
     username: process.env.CONFIG_STORAGE_USERNAME?.trim(),

@@ -100,4 +100,9 @@ async function writeFile(name, content) {
   }
 }
 
-module.exports = { ensureRootFolder, readFile, writeFile };
+async function listFolder(path = ROOT) {
+  if (path === ROOT) return request('/api/folders/');
+  return request(`/api/folders/${encodeURIComponent(path.replace(/^\//, ''))}`);
+}
+
+module.exports = { ensureRootFolder, listFolder, readFile, writeFile };
