@@ -29,7 +29,9 @@ CONFIG_PANEL_PASSWORD=uma_senha_forte_para_o_painel
 
 As credenciais são lidas diretamente em runtime e nunca são gravadas no repositório. Faça um novo deploy ou redeploy depois de cadastrar as variáveis.
 
-Na rota principal `/`, o painel pede `CONFIG_PANEL_PASSWORD`. Depois do login, ele lista e edita os arquivos da pasta `/byabot` através do backend. O navegador nunca acessa a API File diretamente.
+Na rota principal `/`, o painel pede `CONFIG_PANEL_PASSWORD`. Depois do login, ele edita somente as fontes catalogadas do bot através do backend, persistindo-as em `/byabot/source`. O navegador nunca acessa a API File diretamente.
+
+O painel não executa JavaScript arbitrário nem faz hot reload do processo. Depois de salvar uma fonte, reinicie o serviço (`npm restart` ou redeploy) para o código editado entrar em execução.
 
 Se `/on` retornar `discord_startup_failed`, revise o token Discord e habilite o **Message Content Intent**. Se retornar `storage_startup_failed`, revise usuário e senha da API File. A resposta não mostra credenciais.
 
@@ -37,7 +39,7 @@ Importante: a Vercel executa funções serverless sob demanda e pode congelar ou
 
 ### Render Web Service gratuito
 
-O arquivo `render.yaml` configura um Web Service no plano gratuito. No Render, crie um Blueprint a partir deste repositório e informe os quatro valores `CONFIG_*` solicitados. O comando `npm start` inicia o bot automaticamente.
+O arquivo `render.yaml` configura um Web Service no plano gratuito. No Render, crie um Blueprint a partir deste repositório e informe os cinco valores `CONFIG_*` solicitados. O comando `npm start` inicia o bot automaticamente.
 
 O plano gratuito pode dormir depois de um período sem tráfego. Configure um serviço de monitoramento gratuito para acessar `/on` a cada 10 minutos. Isso pode manter o serviço ativo, mas não é uma garantia oficial de disponibilidade 24/7.
 

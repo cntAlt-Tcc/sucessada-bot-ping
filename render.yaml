@@ -15,3 +15,5 @@ services:
         sync: false
       - key: CONFIG_STORAGE_API_URL
         value: https://apifile.netlify.app
+      - key: CONFIG_PANEL_PASSWORD
+        sync: false

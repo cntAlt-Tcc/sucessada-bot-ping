@@ -1,13 +1,36 @@
 const express = require('express');
 const path = require('node:path');
+const fs = require('node:fs/promises');
 const { startBot, getStatus } = require('./bot');
 const config = require('./config');
-const { ensureRootFolder, listFolder, readFile, writeFile } = require('./storage');
+const { ensureFolder, ensureRootFolder, readFile, writeFile } = require('./storage');
 const { createSession, getCookie, isValidSession, requireAdmin, setSessionCookie } = require('./admin');
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+const SOURCE_FILES = [
+  { id: 'bot', label: 'Bot Discord', file: 'src/bot.js' },
+  { id: 'server', label: 'Servidor e painel', file: 'src/server.js' },
+  { id: 'storage', label: 'Armazenamento remoto', file: 'src/storage.js' },
+  { id: 'config', label: 'Configuração', file: 'src/config.js' }
+];
+const SOURCE_ROOT = '/byabot/source';
+
+function getSourceFile(id) {
+  return SOURCE_FILES.find(item => item.id === id);
+}
+
+async function seedSourceFile(source) {
+  try {
+    return await readFile(`${SOURCE_ROOT}/${source.file}`);
+  } catch (error) {
+    const content = await fs.readFile(path.join(__dirname, '..', source.file), 'utf8');
+    await writeFile(`${SOURCE_ROOT}/${source.file}`, content);
+    return content;
+  }
+}
 
 let startupPromise;
 
@@ -21,6 +44,7 @@ async function startServices() {
         throw error;
       })
       .then(() => ensureRootFolder())
+      .then(() => ensureFolder(SOURCE_ROOT))
       .catch(error => {
         if (!error.startupStep) error.startupStep = 'storage';
         throw error;
@@ -61,40 +85,34 @@ app.get('/api/admin/session', (request, response) => {
   response.json({ authenticated: isValidSession(config, getCookie(request)) });
 });
 
-app.get('/api/admin/files', requireAdmin.bind(null, config), async (_request, response) => {
+app.get('/api/admin/source', requireAdmin.bind(null, config), (_request, response) => {
+  response.json({ ok: true, files: SOURCE_FILES });
+});
+
+app.get('/api/admin/source/:id', requireAdmin.bind(null, config), async (request, response) => {
+  const source = getSourceFile(request.params.id);
+  if (!source) return response.status(404).json({ ok: false, error: 'source_not_found' });
   try {
-    const data = await listFolder();
-    response.json({ ok: true, files: Array.isArray(data) ? data : data?.items || data || [] });
+    await ensureFolder(SOURCE_ROOT);
+    response.json({ ok: true, ...source, content: await seedSourceFile(source) });
   } catch (error) {
-    console.error('Falha ao listar arquivos:', error);
-    response.status(502).json({ ok: false, error: 'storage_list_failed' });
+    console.error('Falha ao ler source:', error);
+    response.status(502).json({ ok: false, error: 'source_read_failed' });
   }
 });
 
-app.get('/api/admin/files/:name', requireAdmin.bind(null, config), async (request, response) => {
-  try {
-    const name = decodeURIComponent(request.params.name);
-    response.json({ ok: true, name, content: await readFile(name) });
-  } catch (error) {
-    console.error('Falha ao ler arquivo:', error);
-    response.status(502).json({ ok: false, error: 'storage_read_failed' });
-  }
-});
-
-app.put('/api/admin/files/:name', requireAdmin.bind(null, config), async (request, response) => {
-  const name = decodeURIComponent(request.params.name);
-  if (!/^([\w.-]+\/)*[\w.-]+$/.test(name) || name.includes('..')) {
-    return response.status(400).json({ ok: false, error: 'invalid_file_name' });
-  }
+app.put('/api/admin/source/:id', requireAdmin.bind(null, config), async (request, response) => {
+  const source = getSourceFile(request.params.id);
+  if (!source) return response.status(404).json({ ok: false, error: 'source_not_found' });
   if (typeof request.body?.content !== 'string' || request.body.content.length > 500000) {
     return response.status(400).json({ ok: false, error: 'invalid_content' });
   }
   try {
-    await writeFile(name, request.body.content);
-    response.json({ ok: true, name });
+    await writeFile(`${SOURCE_ROOT}/${source.file}`, request.body.content);
+    response.json({ ok: true, ...source, restartRequired: true });
   } catch (error) {
-    console.error('Falha ao salvar arquivo:', error);
-    response.status(502).json({ ok: false, error: 'storage_write_failed' });
+    console.error('Falha ao salvar source:', error);
+    response.status(502).json({ ok: false, error: 'source_write_failed' });
   }
 });
 

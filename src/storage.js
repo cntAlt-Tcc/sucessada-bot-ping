@@ -70,10 +70,14 @@ async function request(path, options = {}, retry = true) {
 }
 
 async function ensureRootFolder() {
+  return ensureFolder(ROOT);
+}
+
+async function ensureFolder(path) {
   try {
     await request('/api/folders/', {
       method: 'POST',
-      body: JSON.stringify({ path: ROOT })
+      body: JSON.stringify({ path })
     });
   } catch (error) {
     if (!error.message.includes('(400)')) throw error;
@@ -105,4 +109,4 @@ async function listFolder(path = ROOT) {
   return request(`/api/folders/${encodeURIComponent(path.replace(/^\//, ''))}`);
 }
 
-module.exports = { ensureRootFolder, listFolder, readFile, writeFile };
+module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, writeFile };

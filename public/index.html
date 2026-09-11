@@ -3,43 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ByaBot Control</title>
+  <title>BYA // Control Center</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="shell">
     <section id="login-view" class="login-panel">
-      <p class="eyebrow">BYABOT CONTROL</p>
-      <h1>Controle privado do bot.</h1>
-      <p class="muted">Entre para acessar os arquivos persistidos em <strong>/byabot</strong>.</p>
+      <div class="brand-mark">B<span>Y</span>A</div>
+      <p class="eyebrow">CONTROL CENTER / 01</p>
+      <h1>Operação no seu controle.</h1>
+      <p class="muted">Acesso restrito ao runtime do ByaBot.</p>
       <form id="login-form">
         <label for="password">Senha do painel</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
-        <button type="submit">Entrar</button>
+        <button type="submit"><span>Entrar no painel</span><b>↗</b></button>
         <p id="login-error" class="error" role="alert"></p>
       </form>
     </section>
 
     <section id="app-view" class="app-panel hidden">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">BYABOT CONTROL</p>
-          <h1>Arquivos do bot</h1>
-        </div>
-        <button id="logout" class="ghost" type="button">Sair</button>
+        <div class="top-brand"><div class="brand-mark small">B<span>Y</span>A</div><div><p class="eyebrow">BYABOT / CONTROL CENTER</p><h1>Runtime console</h1></div></div>
+        <div class="top-actions"><span class="live-dot">LIVE</span><button id="logout" class="ghost" type="button">Sair <b>↗</b></button></div>
       </header>
-      <div class="workspace">
-        <aside class="files-panel">
-          <div class="section-title"><span>BYABOT</span><button id="refresh" class="icon-button" type="button" title="Atualizar arquivos">↻</button></div>
-          <div id="file-list" class="file-list"></div>
+      <div class="dashboard-grid">
+        <aside class="sidebar">
+          <div class="side-label">NAVIGATION</div>
+          <button class="nav-item active" type="button"><span class="nav-icon">▦</span> Overview</button>
+          <button class="nav-item" type="button"><span class="nav-icon">&lt;/&gt;</span> Source</button>
+          <div class="side-label spaced">RUNTIME</div>
+          <div class="runtime-card"><span class="signal"></span><div><strong>Bot process</strong><small id="side-status">Aguardando</small></div></div>
+          <div class="side-footer">BYA SYSTEMS <span>v1.0.0</span></div>
         </aside>
-        <section class="editor-panel">
-          <div class="editor-head">
-            <div><span id="file-name" class="file-name">Selecione um arquivo</span><span id="status" class="status"></span></div>
-            <button id="save" type="button" disabled>Salvar</button>
-          </div>
-          <textarea id="editor" spellcheck="false" disabled placeholder="Selecione um arquivo para editar"></textarea>
-        </section>
+        <main class="main-content">
+          <div class="welcome-row"><div><p class="eyebrow">OVERVIEW / 24.07.26</p><h2>Boa noite, operador.</h2></div><button id="refresh" class="outline-button" type="button">Atualizar <span>↻</span></button></div>
+          <section class="metrics">
+            <article class="metric-card accent"><span class="metric-label">BOT STATUS</span><strong id="metric-status">OFFLINE</strong><small><i id="status-pulse"></i><span id="metric-detail">Verificando runtime</span></small></article>
+            <article class="metric-card"><span class="metric-label">GATEWAY PING</span><strong id="metric-ping">-- <em>ms</em></strong><small>Discord websocket</small></article>
+            <article class="metric-card"><span class="metric-label">SOURCE FILES</span><strong id="metric-files">04</strong><small>Arquivos gerenciados</small></article>
+          </section>
+          <section class="source-shell">
+            <div class="source-toolbar"><div><p class="eyebrow">SOURCE CONTROL</p><h3>Bot source</h3></div><span id="status" class="status"></span><button id="save" type="button" disabled>Salvar alterações <b>⌘↵</b></button></div>
+            <div class="source-workspace"><div class="source-list"><div class="list-head">MANAGED FILES <span>04</span></div><div id="file-list" class="file-list"></div></div><div class="editor-panel"><div class="editor-head"><span id="file-name" class="file-name">Selecione um source</span><span class="editor-lang">JAVASCRIPT</span></div><textarea id="editor" spellcheck="false" disabled placeholder="Selecione um arquivo de source"></textarea><div class="editor-foot"><span>Persistido em /byabot/source</span><span id="line-count">0 lines</span></div></div></div>
+          </section>
+        </main>
       </div>
     </section>
   </main>
