@@ -95,34 +95,41 @@ let startupPromise;
 async function startServices() {
   if (!startupPromise) {
     logEvent('info', 'startup_begin', 'Inicialização do serviço iniciada', { stage: 'startup' });
-    startupPromise = Promise.resolve()
-      .then(() => { logEvent('info', 'config_validate_start', 'Validando configuração', { stage: 'config' }); config.validateConfig(); logEvent('info', 'config_validate_ok', 'Configuração válida', { stage: 'config' }); })
-      .then(() => { logEvent('info', 'storage_connect_start', 'Conectando à API File', { stage: 'storage' }); return ensureRootFolder(); })
-      .then(() => logEvent('info', 'storage_connect_ok', 'API File disponível', { stage: 'storage' }))
-      .catch(error => {
+    startupPromise = (async () => {
+      try {
+        logEvent('info', 'config_validate_start', 'Validando configuração', { stage: 'config' });
+        config.validateConfig();
+        logEvent('info', 'config_validate_ok', 'Configuração válida', { stage: 'config' });
+        logEvent('info', 'storage_connect_start', 'Conectando à API File', { stage: 'storage' });
+        await ensureRootFolder();
+        await ensureFolder(SOURCE_ROOT);
+        await ensureFolder(`${SOURCE_ROOT}/src`);
+        logEvent('info', 'storage_connect_ok', 'API File disponível', { stage: 'storage' });
+      } catch (error) {
         error.startupStep = 'storage';
         logEvent('error', 'startup_failed', 'Falha na etapa de armazenamento', { stage: 'storage', code: `STORAGE_${error.status || 'UNAVAILABLE'}`, error });
         throw error;
-      })
-      .then(() => ensureFolder(SOURCE_ROOT))
-      .then(() => ensureFolder(`${SOURCE_ROOT}/src`))
-      .then(() => { logEvent('info', 'remote_source_load_start', `Carregando ${REMOTE_BOT_FILE}`, { stage: 'remote_source' }); return loadRemoteBot(); })
-      .then(bot => { logEvent('info', 'discord_login_start', 'Conectando ao Gateway Discord', { stage: 'discord' }); return bot.startBot(); })
-      .then(bot => { logEvent('info', 'discord_login_ok', 'Bot conectado ao Discord', { stage: 'discord', meta: bot.getStatus() }); return bot; })
-      .catch(error => {
-        if (!error.startupStep) error.startupStep = 'discord';
-        logEvent('error', 'startup_failed', 'Falha na inicialização do Discord', { stage: error.startupStep, code: error.message === 'Used disallowed intents' ? 'DISALLOWED_INTENTS' : 'DISCORD_LOGIN_FAILED', error });
+      }
+
+      let bot;
+      try {
+        logEvent('info', 'remote_source_load_start', `Carregando ${REMOTE_BOT_FILE}`, { stage: 'remote_source' });
+        bot = await loadRemoteBot();
+        logEvent('info', 'discord_login_start', 'Conectando ao Gateway Discord', { stage: 'discord' });
+        await bot.startBot();
+        logEvent('info', 'discord_login_ok', 'Bot conectado ao Discord', { stage: 'discord', meta: bot.getStatus() });
+      } catch (error) {
+        error.startupStep = 'discord';
+        logEvent('error', 'startup_failed', 'Falha na inicialização do Discord', { stage: 'discord', code: error.message === 'Used disallowed intents' ? 'DISALLOWED_INTENTS' : 'DISCORD_LOGIN_FAILED', error });
         throw error;
-      })
-      .then(() => writeFile('runtime.json', JSON.stringify({
-        lastStartedAt: new Date().toISOString(),
-        bot: getLoadedBot().getStatus()
-      }, null, 2)).then(() => logEvent('info', 'startup_complete', 'Serviço iniciado com sucesso', { stage: 'runtime' })))
-      .catch(error => {
-        startupPromise = undefined;
-        logEvent('error', 'startup_failed', 'Inicialização encerrada com erro', { stage: error.startupStep || 'runtime', code: 'STARTUP_FAILED', error });
-        throw error;
-      });
+      }
+
+      await writeFile('runtime.json', JSON.stringify({ lastStartedAt: new Date().toISOString(), bot: getLoadedBot().getStatus() }, null, 2));
+      logEvent('info', 'startup_complete', 'Serviço iniciado com sucesso', { stage: 'runtime' });
+    })().catch(error => {
+      startupPromise = undefined;
+      throw error;
+    });
   }
   await startupPromise;
 }
