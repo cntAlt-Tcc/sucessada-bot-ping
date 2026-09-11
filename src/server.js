@@ -171,6 +171,14 @@ async function startServices() {
   await startupPromise;
 }
 
+async function reloadBotSource() {
+  const bot = getLoadedBot();
+  await bot?.stopBot?.();
+  await loadRemoteBot();
+  await getLoadedBot().startBot();
+  await writeFile('runtime.json', JSON.stringify({ lastStartedAt: new Date().toISOString(), bot: getLoadedBot().getStatus() }, null, 2));
+}
+
 app.get('/', (_request, response) => {
   response.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
@@ -268,7 +276,11 @@ app.put('/api/admin/source/item', requireAdmin.bind(null, config), async (reques
       return response.status(400).json({ ok: false, error: 'invalid_content' });
     }
     await writeFile(path, request.body.content);
-    response.json({ ok: true, path, applied: path === getRemoteBotFile() });
+    if (path !== getRemoteBotFile()) {
+      return response.json({ ok: true, path, applied: false, restartRequired: true });
+    }
+    await reloadBotSource();
+    response.json({ ok: true, path, applied: true, restartRequired: false });
   } catch (error) {
     response.status(400).json({ ok: false, error: 'source_write_failed' });
   }
@@ -404,13 +416,7 @@ app.put('/api/admin/source/:id', requireAdmin.bind(null, config), async (request
   }
   try {
     await writeFile(getRemoteBotFile(), request.body.content);
-    const bot = getLoadedBot();
-    if (typeof bot?.stopBot !== 'function') {
-      return response.json({ ok: true, ...source, applied: false, restartRequired: true });
-    }
-    await bot.stopBot();
-    await loadRemoteBot();
-    await getLoadedBot().startBot();
+    await reloadBotSource();
     response.json({ ok: true, ...source, applied: true, restartRequired: false });
   } catch (error) {
     console.error('Falha ao salvar source:', error);
