@@ -121,9 +121,17 @@ async function writeFile(name, content) {
   }
 }
 
+async function deleteFile(name) {
+  return request(`/api/files/${apiPath(storagePath(name))}`, { method: 'DELETE' });
+}
+
+async function deleteFolder(name) {
+  return request(`/api/folders/${apiPath(storagePath(name))}`, { method: 'DELETE' });
+}
+
 async function listFolder(path = ROOT) {
   if (path === ROOT) return request('/api/folders/');
   return request(`/api/folders/${apiPath(path)}`);
 }
 
-module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, writeFile };
+module.exports = { ensureRootFolder, ensureFolder, listFolder, readFile, writeFile, deleteFile, deleteFolder };

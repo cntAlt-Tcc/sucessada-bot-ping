@@ -10,6 +10,7 @@ const saveButton = document.querySelector('#save');
 const lineCount = document.querySelector('#line-count');
 let selectedSource = '';
 let lastLogId = '';
+let selectedItem = null;
 
 async function api(url, options) {
   const response = await fetch(url, { credentials: 'same-origin', ...options });
@@ -32,7 +33,7 @@ function setRuntime(statusText, ping) {
 function showApp() {
   loginView.classList.add('hidden');
   appView.classList.remove('hidden');
-  loadSources();
+  loadTree();
   loadRuntime();
   loadLogs();
   loadServers();
@@ -103,30 +104,45 @@ async function checkSession() {
 }
 
 async function loadSources() {
-  fileList.innerHTML = '<span class="muted">Carregando source...</span>';
+  return loadTree();
+}
+
+async function loadTree() {
+  fileList.innerHTML = '<span class="muted">Carregando árvore...</span>';
   try {
-    const result = await api('/api/admin/source');
+    const result = await api('/api/admin/source-tree');
     fileList.innerHTML = '';
-    result.files.forEach(source => {
-      const button = document.createElement('button');
-      button.className = 'file-item';
-      button.innerHTML = `<span class="code-badge">JS</span><span><b>${source.file}</b><small>${source.label}</small></span>`;
-      button.onclick = () => openSource(source.id, button);
-      fileList.appendChild(button);
-    });
+    let count = 0;
+    function render(items, depth = 0) {
+      items.forEach(item => {
+        if (item.type === 'file') count += 1;
+        const button = document.createElement('button');
+        button.className = `file-item ${item.type === 'folder' ? 'folder-item' : ''}`;
+        button.style.paddingLeft = `${9 + depth * 16}px`;
+        button.innerHTML = `<span class="code-badge">${item.type === 'folder' ? 'DIR' : 'JS'}</span><span><b>${item.name}</b><small>${item.type === 'folder' ? 'pasta' : 'arquivo'}</small></span>`;
+        button.onclick = () => item.type === 'folder' ? button.classList.toggle('expanded') : openItem(item, button);
+        fileList.appendChild(button);
+        if (item.children) render(item.children, depth + 1);
+      });
+    }
+    render(result.tree);
+    document.querySelector('#tree-count').textContent = String(count).padStart(2, '0');
+    if (!fileList.children.length) fileList.innerHTML = '<span class="muted">Nenhum arquivo ainda.</span>';
   } catch (error) {
     fileList.innerHTML = `<span class="error">${error.message}</span>`;
   }
 }
 
-async function openSource(id, button) {
-  selectedSource = id;
+async function openItem(item, button) {
+  selectedItem = item;
   document.querySelectorAll('.file-item').forEach(item => item.classList.remove('active'));
   button.classList.add('active');
   status.textContent = 'carregando';
   try {
-    const result = await api(`/api/admin/source/${encodeURIComponent(id)}`);
-    fileName.textContent = result.file;
+    const result = await api(`/api/admin/source/item?path=${encodeURIComponent(item.path)}`);
+    fileName.textContent = item.name;
+    document.querySelector('#editor-path').textContent = item.path;
+    document.querySelector('#delete-item').classList.remove('hidden');
     editor.value = result.content;
     editor.disabled = false;
     saveButton.disabled = false;
@@ -157,13 +173,14 @@ loginForm.addEventListener('submit', async event => {
 });
 
 saveButton.onclick = async () => {
+  if (!selectedItem) return;
   saveButton.disabled = true;
   status.textContent = 'salvando';
   try {
-    const result = await api(`/api/admin/source/${encodeURIComponent(selectedSource)}`, {
+    const result = await api('/api/admin/source/item', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content: editor.value })
+      body: JSON.stringify({ path: selectedItem.path, content: editor.value })
     });
     status.textContent = result.applied ? 'aplicado ao bot' : 'salvo / reinício necessário';
   } catch (error) {
@@ -177,12 +194,38 @@ editor.addEventListener('input', updateLineCount);
 editor.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') saveButton.click();
 });
-document.querySelector('#refresh').onclick = () => { loadSources(); loadRuntime(); loadLogs(); };
+document.querySelector('#refresh').onclick = () => { loadTree(); loadRuntime(); loadLogs(); };
+document.querySelector('#new-folder').onclick = async () => {
+  const name = window.prompt('Nome da pasta, exemplo: components');
+  if (!name) return;
+  const parent = selectedItem?.type === 'folder' ? selectedItem.path : '/byabot/source';
+  await createSourceItem('folder', `${parent}/${name}`);
+};
+document.querySelector('#new-file').onclick = async () => {
+  const name = window.prompt('Nome do arquivo, exemplo: events/messageCreate.js');
+  if (!name) return;
+  const parent = selectedItem?.type === 'folder' ? selectedItem.path : '/byabot/source';
+  await createSourceItem('file', `${parent}/${name}`);
+};
+async function createSourceItem(type, path) {
+  try {
+    await api(`/api/admin/source/${type}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path, content: '' }) });
+    status.textContent = `${type === 'folder' ? 'pasta' : 'arquivo'} criado`;
+    await loadTree();
+  } catch (error) { window.alert(`Não foi possível criar: ${error.message}`); }
+}
+document.querySelector('#delete-item').onclick = async () => {
+  if (!selectedItem || !window.confirm(`Excluir ${selectedItem.path}?`)) return;
+  try {
+    await api('/api/admin/source/item', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: selectedItem.path, type: selectedItem.type }) });
+    selectedItem = null; editor.value = ''; editor.disabled = true; saveButton.disabled = true; document.querySelector('#delete-item').classList.add('hidden'); await loadTree();
+  } catch (error) { window.alert(`Não foi possível excluir: ${error.message}`); }
+};
 function showView(view) {
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
   document.querySelector(`[data-view="${view}"]`).classList.add('active');
   document.querySelectorAll('.view').forEach(page => page.classList.toggle('view-active', page.dataset.page === view));
-  if (view === 'source') document.querySelector('.file-item')?.click();
+  if (view === 'source') loadTree();
   if (view === 'logs') loadLogs();
   if (view === 'servers') loadServers();
   window.scrollTo({ top: 0, behavior: 'smooth' });
