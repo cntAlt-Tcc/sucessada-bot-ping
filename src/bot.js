@@ -48,4 +48,10 @@ function getStatus() {
   };
 }
 
-module.exports = { startBot, getStatus };
+async function stopBot() {
+  if (client) await client.destroy();
+  client = undefined;
+  connectionPromise = undefined;
+}
+
+module.exports = { startBot, stopBot, getStatus };

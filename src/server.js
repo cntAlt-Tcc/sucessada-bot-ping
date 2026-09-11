@@ -1,21 +1,16 @@
 const express = require('express');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { startBot, getStatus } = require('./bot');
 const config = require('./config');
 const { ensureFolder, ensureRootFolder, readFile, writeFile } = require('./storage');
+const { loadRemoteBot, getLoadedBot, REMOTE_BOT_FILE } = require('./remote-bot');
 const { createSession, getCookie, isValidSession, requireAdmin, setSessionCookie } = require('./admin');
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-const SOURCE_FILES = [
-  { id: 'bot', label: 'Bot Discord', file: 'src/bot.js' },
-  { id: 'server', label: 'Servidor e painel', file: 'src/server.js' },
-  { id: 'storage', label: 'Armazenamento remoto', file: 'src/storage.js' },
-  { id: 'config', label: 'Configuração', file: 'src/config.js' }
-];
+const SOURCE_FILES = [{ id: 'bot', label: 'Bot Discord', file: 'src/bot.js' }];
 const SOURCE_ROOT = '/byabot/source';
 
 function getSourceFile(id) {
@@ -24,7 +19,7 @@ function getSourceFile(id) {
 
 async function seedSourceFile(source) {
   try {
-    return await readFile(`${SOURCE_ROOT}/${source.file}`);
+    return await readFile(REMOTE_BOT_FILE);
   } catch (error) {
     if (error.status !== 404) throw error;
     const content = await fs.readFile(path.join(__dirname, '..', source.file), 'utf8');
@@ -39,21 +34,22 @@ async function startServices() {
   if (!startupPromise) {
     startupPromise = Promise.resolve()
       .then(() => config.validateConfig())
-      .then(() => startBot())
+      .then(() => ensureRootFolder())
       .catch(error => {
-        error.startupStep = 'discord';
+        error.startupStep = 'storage';
         throw error;
       })
-      .then(() => ensureRootFolder())
       .then(() => ensureFolder(SOURCE_ROOT))
       .then(() => ensureFolder(`${SOURCE_ROOT}/src`))
+      .then(() => loadRemoteBot())
+      .then(bot => bot.startBot())
       .catch(error => {
-        if (!error.startupStep) error.startupStep = 'storage';
+        if (!error.startupStep) error.startupStep = 'discord';
         throw error;
       })
       .then(() => writeFile('runtime.json', JSON.stringify({
         lastStartedAt: new Date().toISOString(),
-        bot: getStatus()
+        bot: getLoadedBot().getStatus()
       }, null, 2)))
       .catch(error => {
         startupPromise = undefined;
@@ -111,8 +107,15 @@ app.put('/api/admin/source/:id', requireAdmin.bind(null, config), async (request
     return response.status(400).json({ ok: false, error: 'invalid_content' });
   }
   try {
-    await writeFile(`${SOURCE_ROOT}/${source.file}`, request.body.content);
-    response.json({ ok: true, ...source, restartRequired: true });
+    await writeFile(REMOTE_BOT_FILE, request.body.content);
+    const bot = getLoadedBot();
+    if (typeof bot?.stopBot !== 'function') {
+      return response.json({ ok: true, ...source, applied: false, restartRequired: true });
+    }
+    await bot.stopBot();
+    await loadRemoteBot();
+    await getLoadedBot().startBot();
+    response.json({ ok: true, ...source, applied: true, restartRequired: false });
   } catch (error) {
     console.error('Falha ao salvar source:', error);
     response.status(502).json({ ok: false, error: 'source_write_failed' });
@@ -122,7 +125,7 @@ app.put('/api/admin/source/:id', requireAdmin.bind(null, config), async (request
 app.get('/on', async (_request, response) => {
   try {
     await startServices();
-    response.json({ ok: true, service: 'online', bot: getStatus() });
+    response.json({ ok: true, service: 'online', bot: getLoadedBot().getStatus() });
   } catch (error) {
     console.error('Falha ao iniciar serviços:', error);
     response.status(503).json({

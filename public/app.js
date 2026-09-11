@@ -107,12 +107,12 @@ saveButton.onclick = async () => {
   saveButton.disabled = true;
   status.textContent = 'salvando';
   try {
-    await api(`/api/admin/source/${encodeURIComponent(selectedSource)}`, {
+    const result = await api(`/api/admin/source/${encodeURIComponent(selectedSource)}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ content: editor.value })
     });
-    status.textContent = 'persistido / reinício necessário';
+    status.textContent = result.applied ? 'aplicado ao bot' : 'salvo / reinício necessário';
   } catch (error) {
     status.textContent = error.message;
   } finally {

@@ -31,7 +31,7 @@ As credenciais são lidas diretamente em runtime e nunca são gravadas no reposi
 
 Na rota principal `/`, o painel pede `CONFIG_PANEL_PASSWORD`. Depois do login, ele edita somente as fontes catalogadas do bot através do backend, persistindo-as em `/byabot/source`. O navegador nunca acessa a API File diretamente.
 
-O painel não executa JavaScript arbitrário nem faz hot reload do processo. Depois de salvar uma fonte, reinicie o serviço (`npm restart` ou redeploy) para o código editado entrar em execução.
+O painel não executa JavaScript arbitrário. O source remoto é carregado antes da conexão Discord. Se o código salvo exportar `stopBot`, ele é recarregado imediatamente; caso contrário, o painel informa que é necessário reiniciar o serviço (`npm restart` ou redeploy), evitando duas conexões Discord simultâneas.
 
 Se `/on` retornar `discord_startup_failed`, revise o token Discord e habilite o **Message Content Intent**. Se retornar `storage_startup_failed`, revise usuário e senha da API File. A resposta não mostra credenciais.
 
